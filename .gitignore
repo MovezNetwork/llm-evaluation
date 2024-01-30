@@ -1,0 +1,6 @@
+mlartifacts/
+mlruns/
+output_chat_data/
+output_llm_data/
+wandb/
+config.ini
