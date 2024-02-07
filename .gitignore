@@ -3,4 +3,9 @@ mlruns/
 output_chat_data/
 output_llm_data/
 wandb/
+movez_chats/
+output_parallel_data/
 config.ini
+.ipynb_checkpoints/
+.DS_Store
+__pycache__/
