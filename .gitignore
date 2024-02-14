@@ -4,6 +4,7 @@ output_chat_data/
 output_llm_data/
 wandb/
 movez_chats/
+output_x_shots_data/
 output_parallel_data/
 config.ini
 .ipynb_checkpoints/

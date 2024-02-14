@@ -41,11 +41,12 @@ def get_mistral_medium_output(input_sentences,username):
     prompt_content = '''
     [INST]You are an expert in text style transfer. 
     Here is a sentence written in the style of person X {}. 
-    Your task is three-fold. First, rewrite the same sentence without any style. 
+    Your task is four-fold. First, rewrite the same sentence without any style. 
     Second, describe the conversational style of that person using up to 5 keywords. 
     Third, explain the conversational style of person X' sentence.
+    Forth, describe the syntax of person X' using up to 5 keywords.
     The output needs to be formated as a valid JSON object with the following fields: 
-    rewritten_sentence, style_keywords, explanation 
+    rewritten_sentence, style_keywords, explanation, syntax_keywords
     [\INST]'''
     
     final_output = []

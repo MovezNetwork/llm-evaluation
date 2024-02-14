@@ -12,6 +12,8 @@ from nltk.corpus import stopwords
 from textstat.textstat import textstatistics 
 from collections import Counter
 import numpy as np
+import spacy
+
 
 def tokenize_messages(message):
     tokens = word_tokenize(message)
@@ -21,6 +23,23 @@ def tokenize_messages(message):
 # Word Count
 def word_count(message):
     return len(tokenize_messages(message))
+
+
+def extract_functional_words(input_string):
+    nlp = spacy.load("en_core_web_sm")
+    
+    # Process the input string using SpaCy
+    doc = nlp(input_string)
+    
+    # Extract functional words (e.g., articles, prepositions, conjunctions)
+    functional_words = [token.text for token in doc if token.pos_ in ['DET', 'ADP', 'CONJ']]
+    
+    return functional_words
+
+# Example usage
+input_text = "The quick brown fox jumped over the lazy dog."
+functional_words_result = extract_functional_words(input_text)
+print("Functional Words:", functional_words_result)
 
 # Use of Punctuation
 def punctuation_count(message):
