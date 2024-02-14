@@ -24,26 +24,42 @@ def tokenize_messages(message):
 def word_count(message):
     return len(tokenize_messages(message))
 
-
-def extract_functional_words(input_string):
+def extract_functional_words(message):
     nlp = spacy.load("en_core_web_sm")
     
     # Process the input string using SpaCy
-    doc = nlp(input_string)
+    doc = nlp(message)
     
     # Extract functional words (e.g., articles, prepositions, conjunctions)
     functional_words = [token.text for token in doc if token.pos_ in ['DET', 'ADP', 'CONJ']]
     
     return functional_words
 
-# Example usage
-input_text = "The quick brown fox jumped over the lazy dog."
-functional_words_result = extract_functional_words(input_text)
-print("Functional Words:", functional_words_result)
+def extract_adjectives(text):
+    nlp = spacy.load("en_core_web_sm")
+    
+    # Process the text using SpaCy
+    doc = nlp(text)
+    
+    # Extract adjectives from the processed text
+    adjectives = [token.text for token in doc if token.pos_ == "ADJ"]
+    
+    return adjectives
+
+
 
 # Use of Punctuation
 def punctuation_count(message):
     return sum(1 for char in message if char in string.punctuation)
+
+def extract_punctuation(message):
+    # Get all punctuation characters
+    all_punctuation = string.punctuation
+    
+    # Extract punctuation from the message
+    punctuation_in_message = [char for char in message if char in all_punctuation]
+    
+    return punctuation_in_message
 
 # TTR is a measure of lexical richness that compares the number of unique words (types) to 
 # the total number of words (tokens) in the text.
