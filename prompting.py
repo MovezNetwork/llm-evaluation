@@ -17,21 +17,35 @@ def generate_x_shots_files():
     seed_value = 42  
     # read the messages input files
     csv_files = glob.glob(output_parallel_data + '*')
-
+    random.seed(seed_value)
+    
     for file in csv_files:
         #read the username
         username = file[21:23]
         if file.endswith('mistral_medium.csv'):
-            df = pd.read_csv(file)
-            lst_x_shots = [df.sample(n=3, random_state=seed_value),df.sample(n=5, random_state=seed_value),df.sample(n=10, random_state=seed_value)]
-            for df_shots in lst_x_shots:
+            df_mistral = pd.read_csv(file)
+            possible_rows = list(range(df_mistral.shape[0]))
+            
+            random.shuffle(possible_rows)
+            three_shots = possible_rows[:3]
+            
+            random.shuffle(possible_rows)
+            five_shots = possible_rows[:5]
+
+            random.shuffle(possible_rows)
+            ten_shots = possible_rows[:10]
+             
+            lst_x_shots_mistral = [df_mistral.iloc[three_shots],df_mistral.iloc[five_shots],df_mistral.iloc[ten_shots]]
+            
+            for df_shots in lst_x_shots_mistral:
                  #save the shots dataset to csv
                 df_shots[['messageID','rewritten_sentence','original']].to_csv(output_shots_data  + username + '_mistral_shots_' + str(df_shots.shape[0])+'.csv',index=False)
 
-        elif file.endswith('gpt_4.csv'):
-            df = pd.read_csv(file)
-            lst_x_shots = [df.sample(n=3),df.sample(n=5),df.sample(n=10)]
-            for df_shots in lst_x_shots:
+            #now get the appropriate gpt file
+            gpt_file = output_parallel_data + username + '_parallel_data_gpt_4.csv'
+            df_gpt = pd.read_csv(gpt_file)
+            lst_x_shots_gpt = [df_gpt.iloc[three_shots],df_gpt.iloc[five_shots],df_gpt.iloc[ten_shots]]
+            for df_shots in lst_x_shots_gpt:
                  #save the shots dataset to csv
                 df_shots[['messageID','rewritten_sentence','original']].to_csv(output_shots_data  + username + '_gpt_shots_' + str(df_shots.shape[0])+'.csv',index=False)
             

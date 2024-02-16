@@ -18,13 +18,15 @@ def extract_info(row):
         return pd.Series({
             'rewritten_sentence': json_data.get('rewritten_sentence', ''),
             'style_keywords': json_data.get('style_keywords', []),
-            'explanation': json_data.get('explanation', '')
+            'explanation': json_data.get('explanation', ''),
+            'syntax_keywords': json_data.get('syntax_keywords', []),
         })
-    except json.JSONDecodeError:
+    except Exception as e:
         return pd.Series({
             'rewritten_sentence': '',
             'style_keywords': [],
-            'explanation': ''
+            'explanation': '',
+            'syntax_keywords': [],
         })
 
 
@@ -70,8 +72,8 @@ def get_mistral_medium_output(input_sentences,username):
     df_mistral_output = pd.DataFrame(final_output)
     df_mistral_output = df_mistral_output.reset_index(names='messageID')
     # Apply the function to each row and create new columns
-    df_mistral_output[['rewritten_sentence', 'style_keywords', 'explanation']] = df_mistral_output['output'].apply(extract_info)
-    df_mistral_output = df_mistral_output[['messageID','original','rewritten_sentence','style_keywords','explanation','output']]
+    df_mistral_output[['rewritten_sentence', 'style_keywords', 'explanation', 'syntax_keywords']] = df_mistral_output['output'].apply(extract_info)
+    df_mistral_output = df_mistral_output[['messageID','original','rewritten_sentence','style_keywords','explanation', 'syntax_keywords','output']]
     df_mistral_output.to_csv(parallel_folder + username + '_parallel_data_mistral_medium.csv')
 
     return df_mistral_output
@@ -87,11 +89,12 @@ def get_gpt_4_output(input_sentences,username):
     gpt_m = "gpt-4"
     gpt_system_msg = '''
     You are an expert in text style transfer. 
-    Your task is three-fold. First, rewrite the sentence of a person X without any style. 
+    Your task is four-fold. First, rewrite the sentence of a person X without any style. 
     Second, describe the conversational style of that person using up to 5 keywords. 
     Third, explain the conversational style of person X' sentence.
+    Forth, describe the syntax of person X' using up to 5 keywords.
     The output needs to be formated as a valid JSON object with the following fields: 
-    rewritten_sentence, style_keywords, explanation 
+    rewritten_sentence, style_keywords, explanation, syntax_keywords 
     '''
     gpt_temperature = 0.2
     gpt_max_tokens = 256
@@ -119,8 +122,8 @@ def get_gpt_4_output(input_sentences,username):
         
     df_gpt_output = pd.DataFrame(final_output)
     df_gpt_output = df_gpt_output.reset_index(names='messageID')
-    df_gpt_output[['rewritten_sentence', 'style_keywords', 'explanation']] = df_gpt_output['output'].apply(extract_info)
-    df_gpt_output = df_gpt_output[['messageID','original','rewritten_sentence','style_keywords','explanation','output']]
+    df_gpt_output[['rewritten_sentence', 'style_keywords', 'explanation', 'syntax_keywords']] = df_gpt_output['output'].apply(extract_info)
+    df_gpt_output = df_gpt_output[['messageID','original','rewritten_sentence','style_keywords','explanation', 'syntax_keywords','output']]
     df_gpt_output.to_csv(parallel_folder + username + '_parallel_data_gpt_4.csv')
         
 
@@ -207,7 +210,57 @@ def get_keyword_details():
             
             # Save the WordCloud image to a PNG file
             plt.savefig(parallel_folder + username + '_gpt_4_keyword_cloud_image.png', bbox_inches='tight')
-    
+
+def delete_after_character(input_string, character):
+    index = input_string.find(character)
+    if index != -1:  # Check if the character is found in the string
+        return input_string[:index + 1]  # Include the character itself
+    else:
+        return input_string  # Return the original string if the character is not found
+        
+def postprocess_rows(row):
+    try:
+        row = delete_after_character(row,'}')
+        # Preprocess the string to replace double backslashes with a single backslash
+        cleaned_row = row.replace('\\', '').replace('\\\\', '')
+        json_data = json.loads(cleaned_row)
+        return pd.Series({
+            'rewritten_sentence': json_data.get('rewritten_sentence', ''),
+            'style_keywords': json_data.get('style_keywords', []),
+            'explanation': json_data.get('explanation', ''),
+            'syntax_keywords': json_data.get('syntax_keywords', []),
+        })
+    except Exception as e:
+        return pd.Series({
+            'rewritten_sentence': '',
+            'style_keywords': [],
+            'explanation': '',
+            'syntax_keywords': [],
+        })
+
+def postprocess_files():
+    output_parallel_data = 'output_parallel_data/'
+    csv_files = glob.glob(output_parallel_data + '/*.csv')
+
+    for file in csv_files:
+        # Check if the file ends with 'chat_llm.csv'
+        if file.endswith('mistral_medium.csv'):       
+            columns_to_update = ['rewritten_sentence', 'style_keywords','explanation','syntax_keywords']
+            df_file = pd.read_csv(file)
+            df_file_temp = df_file[df_file['rewritten_sentence'].isnull()]
+            # there are no incomplete rows..
+            if df_file_temp.empty:
+                return
+            else:
+                df_file_temp[columns_to_update] = df_file_temp['output'].apply(postprocess_rows)
+                # Specify the columns you want to update 
+                # Merge both dfs
+                df_file_merged = pd.merge(df_file, df_file_temp, on='messageID', how='left', suffixes=('', '_new'))
+                # Update the specified columns in df_file
+                for col in columns_to_update:
+                    df_file[col] = df_file_merged[col+'_new'].fillna(df_file_merged[col])
+                
+                df_file.to_csv(file)
     
     
     
