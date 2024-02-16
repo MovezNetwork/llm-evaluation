@@ -9,6 +9,7 @@ from wordcloud import WordCloud
 import ast
 import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib
 
 def extract_info(row):
     try:
@@ -142,75 +143,123 @@ def get_keyword_details():
         if file.endswith('parallel_data_mistral_medium.csv'):
             username = file[21:23]
             df_test = pd.read_csv(file)
-        
-            keywords_lists = [ast.literal_eval(keyword_str) for keyword_str in list(df_test['style_keywords'])]
+            # print('Username ', username, '\n MISTRAL Keywords:',df_test['syntax_keywords'])
+            style_keywords_lists = [ast.literal_eval(keyword_str) for keyword_str in list(df_test['style_keywords'])]
             # Merge all lists into one
-            all_keywords = [keyword for sublist in keywords_lists for keyword in sublist]
+            all_style_keywords = [keyword for sublist in style_keywords_lists for keyword in sublist]
             # Create a DataFrame with keyword and frequency columns
-            keywords_df = pd.DataFrame({'keyword': all_keywords})
+            style_keywords_df = pd.DataFrame({'keyword': all_style_keywords})
             # Count the frequency of each keyword
-            keyword_counts = keywords_df['keyword'].value_counts().reset_index()
+            style_keyword_counts = style_keywords_df['keyword'].value_counts().reset_index()
             # Rename the columns
-            keyword_counts.columns = ['keyword', 'frequency']
-            
+            style_keyword_counts.columns = ['keyword', 'frequency']
             # Add a 'percentage' column
-            total_keywords = keyword_counts['frequency'].sum()
-            keyword_counts['percentage'] = (keyword_counts['frequency'] / total_keywords) * 100
-            
+            total_style_keywords = style_keyword_counts['frequency'].sum()
+            style_keyword_counts['percentage'] = (style_keyword_counts['frequency'] / total_style_keywords) * 100
             # Sort the DataFrame by frequency in descending order
-            keyword_counts = keyword_counts.sort_values(by='frequency', ascending=False)
+            style_keyword_counts = style_keyword_counts.sort_values(by='frequency', ascending=False)
             # Display the final DataFrame
-            keyword_counts.to_csv(parallel_folder + username + '_mistral_keywords_details.csv')
+            style_keyword_counts.to_csv(parallel_folder + username + '_mistral_style_keywords_details.csv')
             
             # Create a WordCloud
-            wordcloud = WordCloud(width=800, height=400, background_color='white').generate(' '.join(all_keywords))
-            
+            wordcloud = WordCloud(width=800, height=400, background_color='white').generate(' '.join(all_style_keywords))
             # Plot the WordCloud
             plt.figure(figsize=(10, 6))
             plt.imshow(wordcloud, interpolation='bilinear')
             plt.axis('off')
-            plt.title('Mistral Keyword Word Cloud. User ' + username)
-            
-            
+            plt.title('Mistral Style Keyword Word Cloud. User ' + username)
             # Save the WordCloud image to a PNG file
-            plt.savefig(parallel_folder + username + '_mistral_keyword_cloud_image.png', bbox_inches='tight')
-
+            plt.savefig(parallel_folder + username + '_mistral_style_keyword_cloud_image.png', bbox_inches='tight')
+            matplotlib.pyplot.close()
+            
+            # NOW THE SYNTAX KEYWORDS
+            syntax_keywords_lists = [ast.literal_eval(keyword_str) for keyword_str in list(df_test['syntax_keywords'])]
+            # Merge all lists into one
+            all_syntax_keywords = [keyword for sublist in syntax_keywords_lists for keyword in sublist]
+            # Create a DataFrame with keyword and frequency columns
+            syntax_keywords_df = pd.DataFrame({'keyword': all_syntax_keywords})
+            # Count the frequency of each keyword
+            syntax_keyword_counts = syntax_keywords_df['keyword'].value_counts().reset_index()
+            # Rename the columns
+            syntax_keyword_counts.columns = ['keyword', 'frequency']
+            # Add a 'percentage' column
+            total_syntax_keywords = syntax_keyword_counts['frequency'].sum()
+            syntax_keyword_counts['percentage'] = (syntax_keyword_counts['frequency'] / total_syntax_keywords) * 100
+            # Sort the DataFrame by frequency in descending order
+            syntax_keyword_counts = syntax_keyword_counts.sort_values(by='frequency', ascending=False)
+            # Display the final DataFrame
+            syntax_keyword_counts.to_csv(parallel_folder + username + '_mistral_syntax_keywords_details.csv')
+            
+            # Create a WordCloud
+            wordcloud = WordCloud(width=800, height=400, background_color='white').generate(' '.join(all_syntax_keywords))
+            # Plot the WordCloud
+            plt.figure(figsize=(10, 6))
+            plt.imshow(wordcloud, interpolation='bilinear')
+            plt.axis('off')
+            plt.title('Mistral Syntax Keyword Word Cloud. User ' + username)
+            # Save the WordCloud image to a PNG file
+            plt.savefig(parallel_folder + username + '_mistral_syntax_keyword_cloud_image.png', bbox_inches='tight')
+            matplotlib.pyplot.close()
+            
         elif file.endswith('parallel_data_gpt_4.csv'):
             username = file[21:23]
             df_test = pd.read_csv(file)
-        
-            keywords_lists = [list(map(str.lower, ast.literal_eval(keyword_str))) for keyword_str in list(df_test['style_keywords'])]
+            # print('Username ', username, '\n GPT Keywords:',df_test['syntax_keywords'])
+            style_keywords_lists = [list(map(str.lower, ast.literal_eval(keyword_str))) for keyword_str in list(df_test['style_keywords'])]
             # Merge all lists into one
-            all_keywords = [keyword for sublist in keywords_lists for keyword in sublist]
+            all_style_keywords = [keyword for sublist in style_keywords_lists for keyword in sublist]
             # Create a DataFrame with keyword and frequency columns
-            keywords_df = pd.DataFrame({'keyword': all_keywords})
+            style_keywords_df = pd.DataFrame({'keyword': all_style_keywords})
             # Count the frequency of each keyword
-            keyword_counts = keywords_df['keyword'].value_counts().reset_index()
+            style_keyword_counts = style_keywords_df['keyword'].value_counts().reset_index()
             # Rename the columns
-            keyword_counts.columns = ['keyword', 'frequency']
-            
+            style_keyword_counts.columns = ['keyword', 'frequency']
             # Add a 'percentage' column
-            total_keywords = keyword_counts['frequency'].sum()
-            keyword_counts['percentage'] = (keyword_counts['frequency'] / total_keywords) * 100
-            
+            total_style_keywords = style_keyword_counts['frequency'].sum()
+            style_keyword_counts['percentage'] = (style_keyword_counts['frequency'] / total_style_keywords) * 100
             # Sort the DataFrame by frequency in descending order
-            keyword_counts = keyword_counts.sort_values(by='frequency', ascending=False)
+            style_keyword_counts = style_keyword_counts.sort_values(by='frequency', ascending=False)
             # Display the final DataFrame
-            keyword_counts.to_csv(parallel_folder + username + '_gpt_4_keywords_details.csv')
+            style_keyword_counts.to_csv(parallel_folder + username + '_gpt_4_style_keywords_details.csv')
             
             # Create a WordCloud
-            wordcloud = WordCloud(width=800, height=400, background_color='white').generate(' '.join(all_keywords))
-            
+            wordcloud = WordCloud(width=800, height=400, background_color='white').generate(' '.join(all_style_keywords))
             # Plot the WordCloud
             plt.figure(figsize=(10, 6))
             plt.imshow(wordcloud, interpolation='bilinear')
             plt.axis('off')
-            plt.title('GPT4 Keyword Word Cloud. User ' + username)
-            
-            
+            plt.title('GPT4 Style Keyword Word Cloud. User ' + username)
             # Save the WordCloud image to a PNG file
-            plt.savefig(parallel_folder + username + '_gpt_4_keyword_cloud_image.png', bbox_inches='tight')
+            plt.savefig(parallel_folder + username + '_gpt_4_style_keyword_cloud_image.png', bbox_inches='tight')
+            matplotlib.pyplot.close()
+            
+            syntax_keywords_lists = [list(map(str.lower, ast.literal_eval(keyword_str))) for keyword_str in list(df_test['syntax_keywords'])]
+            # Merge all lists into one
+            all_syntax_keywords = [keyword for sublist in syntax_keywords_lists for keyword in sublist]
+            # Create a DataFrame with keyword and frequency columns
+            syntax_keywords_df = pd.DataFrame({'keyword': all_syntax_keywords})
+            # Count the frequency of each keyword
+            syntax_keyword_counts = syntax_keywords_df['keyword'].value_counts().reset_index()
+            # Rename the columns
+            syntax_keyword_counts.columns = ['keyword', 'frequency']
+            # Add a 'percentage' column
+            total_syntax_keywords = syntax_keyword_counts['frequency'].sum()
+            syntax_keyword_counts['percentage'] = (syntax_keyword_counts['frequency'] / total_syntax_keywords) * 100
+            # Sort the DataFrame by frequency in descending order
+            syntax_keyword_counts = syntax_keyword_counts.sort_values(by='frequency', ascending=False)
+            # Display the final DataFrame
+            syntax_keyword_counts.to_csv(parallel_folder + username + '_gpt_4_syntax_keywords_details.csv')
 
+            wordcloud = WordCloud(width=800, height=400, background_color='white').generate(' '.join(all_syntax_keywords))
+            # Plot the WordCloud
+            plt.figure(figsize=(10, 6))
+            plt.imshow(wordcloud, interpolation='bilinear')
+            plt.axis('off')
+            plt.title('GPT4 Syntax Keyword Word Cloud. User ' + username)
+            # Save the WordCloud image to a PNG file
+            plt.savefig(parallel_folder + username + '_gpt_4_syntax_keyword_cloud_image.png', bbox_inches='tight')
+            matplotlib.pyplot.close()
+            
 def delete_after_character(input_string, character):
     index = input_string.find(character)
     if index != -1:  # Check if the character is found in the string

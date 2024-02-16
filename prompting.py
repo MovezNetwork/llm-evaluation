@@ -93,7 +93,7 @@ def prompting_mistral(prompt_id,x_shots,mistral_m,input_sentences,save_online,pa
             username = file[20:22]
             run_id = str(random.randint(100000, 999999))            
             df_shots = pd.read_csv(file)
-            print("run_id_" + run_id + "_user_" + username + "_promptID_" + prompt_id + '_model_'+ mistral_m + '_shots_' + str(x_shots))
+            print("user_" + username + "_promptID_" + prompt_id + '_model_'+ mistral_m + '_shots_' + str(x_shots) + "_run_id_" + run_id)
 
             # Update the prompt template with the x-shot sentences
             x_shots_list = []
@@ -136,18 +136,18 @@ def prompting_mistral(prompt_id,x_shots,mistral_m,input_sentences,save_online,pa
 
             # Save mistral output in a csv (locally), and Weights&Biases (online, optional)
             df_mistral_output = pd.DataFrame(final_output)
-            df_mistral_output.to_csv(output_llm_folder_path +"run_id_" + run_id +  "_user_" + username + "_promptID_" + prompt_id + '_model_'+ mistral_m + '_shots_' + str(df_shots.shape[0]) + '_output.csv', index=False)
+            df_mistral_output.to_csv(output_llm_folder_path + "user_" + username + "_promptID_" + prompt_id + '_model_'+ mistral_m + '_shots_' + str(df_shots.shape[0]) + "_run_id_" + run_id + '_output.csv', index=False)
 
             dict_mistral_output[username] = df_mistral_output
 
 
             if save_online:
-                wandb.init(project="lmm-evaluate", name="run_id_" + run_id + "_user_" + username + "_promptID_" + prompt_id + '_model_'+ mistral_m+ '_shots_' + str(x_shots), mode = "disabled")
+                wandb.init(project="lmm-evaluate", name="user_" + username + "_promptID_" + prompt_id + '_model_'+ mistral_m+ '_shots_' + str(x_shots) + "_run_id_" + run_id , mode = "disabled")
                 # log df as a table to W&B for interactive exploration
-                wandb.log({"run_id_" + run_id + "promptID_" + prompt_id + '_model'+ mistral_m: wandb.Table(dataframe = df_mistral_output)})
+                wandb.log({"promptID_" + prompt_id + '_model'+ mistral_m + "_run_id_" + run_id : wandb.Table(dataframe = df_mistral_output)})
                 # log csv file as an dataset artifact to W&B for later use
                 artifact = wandb.Artifact('df_' +"run_id_" + run_id + "promptID_" + prompt_id + '_model_'+ mistral_m + '_shots_' + str(x_shots) + '_output', type="dataset")
-                artifact.add_file(output_llm_folder_path +"run_id_" + run_id + "_user_" + username + "_promptID_" + prompt_id + '_model_'+ mistral_m + '_shots_' + str(x_shots) + '_output.csv')
+                artifact.add_file(output_llm_folder_path + "user_" + username + "_promptID_" + prompt_id + '_model_'+ mistral_m + '_shots_' + str(x_shots) + "_run_id_" + run_id  + '_output.csv')
                 wandb.log_artifact(artifact)
                 wandb.finish()
 
@@ -180,8 +180,15 @@ def prompting_gpt(prompt_id,x_shots,gpt_m,input_sentences,save_online,parallel_d
             username = file[20:22]
             run_id = str(random.randint(100000, 999999))            
             df_shots = pd.read_csv(file)
-            print("run_id_" + run_id + "_user_" + username + "_promptID_" + prompt_id + '_model_'+ gpt_m + '_shots_' + str(x_shots))
-
+            # print(type(username)) 
+            # print(type(prompt_id))
+            # print(type(gpt_m)) 
+            # print(type(str(x_shots)))
+            # print(type(run_id))
+            gpt_final_path = str(output_llm_folder_path) + "user_" + str(username) + "_promptID_" + str(prompt_id) + '_model_'+ str(gpt_m) + '_shots_' + str(df_shots.shape[0]) + "_run_id_" + str(run_id) + '_output.csv'
+            
+          
+            print(gpt_final_path)
             # Update the prompt template with the x-shot sentences
             x_shots_list = []
             messages_id = []
@@ -235,18 +242,18 @@ def prompting_gpt(prompt_id,x_shots,gpt_m,input_sentences,save_online,parallel_d
 
             # Save gpt output in a csv (locally), and Weights&Biases (online, optional)
             df_gpt_output = pd.DataFrame(final_output)
-            df_gpt_output.to_csv(output_llm_folder_path +"run_id_" + run_id +  "_user_" + username + "_promptID_" + prompt_id + '_model_'+ gpt_m + '_shots_' + str(df_shots.shape[0]) + '_output.csv', index=False)
+            df_gpt_output.to_csv(gpt_final_path, index=False)
 
             dict_gpt_output[username] = df_gpt_output
 
 
             if save_online:
-                wandb.init(project="lmm-evaluate", name="run_id_" + run_id + "_user_" + username + "_promptID_" + prompt_id + '_model_'+ gpt_m+ '_shots_' + str(x_shots))
+                wandb.init(project="lmm-evaluate", name= "user_" + username + "_promptID_" + prompt_id + '_model_'+ gpt_m+ '_shots_' + str(x_shots)+"_run_id_" + run_id , mode = "disabled")
                 # log df as a table to W&B for interactive exploration
-                wandb.log({"run_id_" + run_id + "promptID_" + prompt_id + '_model'+ gpt_m: wandb.Table(dataframe = df_gpt_output)})
+                wandb.log({"promptID_" + prompt_id + '_model'+ gpt_m + "_run_id_" + run_id : wandb.Table(dataframe = df_gpt_output)})
                 # log csv file as an dataset artifact to W&B for later use
                 artifact = wandb.Artifact('df_' +"run_id_" + run_id + "promptID_" + prompt_id + '_model_'+ gpt_m + '_shots_' + str(x_shots) + '_output', type="dataset")
-                artifact.add_file(output_llm_folder_path +"run_id_" + run_id + "_user_" + username + "_promptID_" + prompt_id + '_model_'+ gpt_m + '_shots_' + str(x_shots) + '_output.csv')
+                artifact.add_file(output_llm_folder_path  + "user_" + username + "_promptID_" + prompt_id + '_model_'+ gpt_m + '_shots_' + str(x_shots) + "_run_id_" + run_id + '_output.csv')
                 wandb.log_artifact(artifact)
                 wandb.finish()
 
