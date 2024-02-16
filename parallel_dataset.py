@@ -310,7 +310,221 @@ def postprocess_files():
                     df_file[col] = df_file_merged[col+'_new'].fillna(df_file_merged[col])
                 
                 df_file.to_csv(file)
+
+
+def generate_context():
+    context_dict = {
+        "U0": [],
+        "U1": [],
+        "U2": [],
+        "U3": [],
+        "U4": [],
+        "U5": [],
+        "U6": [],
+        "U7": [],
+        "U8": [],
+        "U9": []
+    }
     
+    context_dict["U0"] = {}
+    context_dict["U1"] = {}
+    context_dict["U2"] = {}
+    context_dict["U3"] = {}
+    context_dict["U4"] = {}
+    context_dict["U5"] = {}
+    context_dict["U6"] = {}
+    context_dict["U7"] = {}
+    context_dict["U8"] = {}
+    context_dict["U9"] = {}
     
+    output_chat_data = "output_chat_data/"
+    output_context_folder = 'output_context/'
     
+    csv_files = glob.glob(output_chat_data + '*')
+    for file in csv_files:
+        username = file[17:19]
+        
+        if(file.find('word_distribution') != -1):
+            df_words = pd.read_csv(file) 
+            tuples_list = [(length, freq) for length, freq in zip(df_words['word_length'], df_words['percentage'])]
+            word_count_distribution = str(tuples_list)
+            context_dict[username]['word_distribution'] = word_count_distribution
+            # print('Word frequency: ', word_count_distribution, '\n\n')
+    
+        elif(file.find('chat_llm') != -1):
+            df_chat = pd.read_csv(file)
+            len_chat = df_chat.shape[0]
+            
+            # GET ADJECTIVES LIST
+            adjectives_lists = [ast.literal_eval(keyword_str) for keyword_str in list(df_chat['adjectives'])]
+            # Merge all lists into one
+            all_adjectives = [keyword for sublist in adjectives_lists for keyword in sublist]
+            adjectives_df = pd.DataFrame({'adjective': all_adjectives})
+            # Count the frequency of each keyword
+            adjectives_df = adjectives_df['adjective'].value_counts().reset_index()
+            # Rename the columns
+            adjectives_df.columns = ['adjective', 'frequency']
+            total_keywords = adjectives_df['frequency'].sum()
+            adjectives_df['percentage'] = round((adjectives_df['frequency'] / len_chat) * 100,2)
+            tuples_list = [(length, freq) for length, freq in zip(adjectives_df['adjective'], adjectives_df['percentage'])]
+            adjective_distribution = str(tuples_list)
+            context_dict[username]['adjectives'] = adjective_distribution
+            # print('Adjectives: ',adjective_distribution, '\n\n')
+    
+            
+            # GET FUNCTIONAL WORDS
+            functional_words_lists = [ast.literal_eval(keyword_str) for keyword_str in list(df_chat['fuctional_words'])]
+            # Merge all lists into one
+            all_functional_words = [keyword for sublist in functional_words_lists for keyword in sublist]
+            functional_words_df = pd.DataFrame({'functional_words': all_functional_words})
+            # Count the frequency of each keyword
+            functional_words_df = functional_words_df['functional_words'].value_counts().reset_index()
+            # Rename the columns
+            functional_words_df.columns = ['functional_words', 'frequency']
+            total_keywords = functional_words_df['frequency'].sum()
+            functional_words_df['percentage'] = round((functional_words_df['frequency'] / len_chat) * 100,2)
+            tuples_list = [(length, freq) for length, freq in zip(functional_words_df['functional_words'], functional_words_df['percentage'])]
+            functional_words_distribution = str(tuples_list)
+            context_dict[username]['functional_words'] = functional_words_distribution
+            # print('Functional Words: ',functional_words_distribution, '\n\n')
+    
+            # GET PUNCTUATION
+            punctuation_lists = [ast.literal_eval(keyword_str) for keyword_str in list(df_chat['punctuations'])]
+            # Merge all lists into one
+            all_punctuation = [keyword for sublist in punctuation_lists for keyword in sublist]
+            punctuation_df = pd.DataFrame({'punctuation': all_punctuation})
+            # Count the frequency of each keyword
+            punctuation_df = punctuation_df['punctuation'].value_counts().reset_index()
+            # Rename the columns
+            punctuation_df.columns = ['punctuation', 'frequency']
+            total_keywords = punctuation_df['frequency'].sum()
+            punctuation_df['percentage'] = round((punctuation_df['frequency'] / len_chat) * 100,2)
+            tuples_list = [(length, freq) for length, freq in zip(punctuation_df['punctuation'], punctuation_df['percentage'])]
+            punctuation_distribution = str(tuples_list)
+            context_dict[username]['punctuations'] = punctuation_distribution
+            # print('Punctuation: ',punctuation_distribution, '\n\n')
+    
+            # GET EMOJIS
+            all_emojis = list(df_chat['emojis'])
+            all_emojis = [x for x in all_emojis if x == x]
+            separated_emojis = []
+            for emoji in all_emojis:
+                # Check if the emoji is a combination of emojis or an emoticon
+                if not all(ord(char) < 128 for char in emoji):
+                    # If it's a combination of emojis, split them
+                    separated_emojis.extend(list(emoji))
+                else:
+                    # If it's an emoticon, keep it as is
+                    separated_emojis.append(emoji)
+           
+            emojis_df = pd.DataFrame({'emojis': separated_emojis})
+            # Count the frequency of each keyword
+            emojis_df = emojis_df['emojis'].value_counts().reset_index()
+            # Rename the columns
+            emojis_df.columns = ['emojis', 'frequency']
+            total_keywords = emojis_df['frequency'].sum()
+            # print('Rows',df_chat.shape[0])
+            # print('emojis_df ', emojis_df)
+            emojis_df['percentage'] = round((emojis_df['frequency'] / len_chat) * 100,2)
+            tuples_list = [(length, freq) for length, freq in zip(emojis_df['emojis'], emojis_df['percentage'])]
+            emojis_distribution = str(tuples_list)
+            context_dict[username]['emojis'] = emojis_distribution
+            # print(emojis_distribution)
+    
+            # Should we do the percentage relative to all messages or to the total number of X column values (like it is now).
+            # Ex. think about this: someone used only 2 emojies, while another person 20. 
+    
+        # STYLE KEYWORDS
+        elif(file.find('mistral_style') != -1):
+            df_mistral = pd.read_csv(file) 
+            tuples_list = [(length, round(freq,2)) for length, freq in zip(df_mistral['keyword'], df_mistral['percentage'])]
+            word_count_distribution = str(tuples_list)
+            context_dict[username]['style_mistral'] = word_count_distribution
+            # print('Mistral Style Keywords: ', word_count_distribution, '\n\n')
+        elif(file.find('gpt_4_style') != -1):
+            df_gpt = pd.read_csv(file) 
+            tuples_list = [(length, round(freq,2)) for length, freq in zip(df_gpt['keyword'], df_gpt['percentage'])]
+            word_count_distribution = str(tuples_list)
+            context_dict[username]['style_gpt'] = word_count_distribution
+        
+        # SYNTAX KEYWORDS
+        elif(file.find('mistral_syntax') != -1):
+            df_mistral = pd.read_csv(file) 
+            tuples_list = [(length, round(freq,2)) for length, freq in zip(df_mistral['keyword'], df_mistral['percentage'])]
+            word_count_distribution = str(tuples_list)
+            context_dict[username]['syntax_mistral'] = word_count_distribution
+            # print('Mistral Style Keywords: ', word_count_distribution, '\n\n')
+        elif(file.find('gpt_4_syntax') != -1):
+            df_gpt = pd.read_csv(file) 
+            tuples_list = [(length, round(freq,2)) for length, freq in zip(df_gpt['keyword'], df_gpt['percentage'])]
+            word_count_distribution = str(tuples_list)
+            context_dict[username]['syntax_gpt'] = word_count_distribution
+            # print('GPT Style Keywords: ', word_count_distribution, '\n\n')
+    
+    df = pd.DataFrame.from_dict(context_dict, orient='index')
+    df = df.reset_index().rename(columns={"index": "userID"})
+    df.to_csv(output_context_folder + 'context_summary.csv')        
+    
+    #### Build the prompt context strings (per user)
+    keys = ["U0","U1", "U2","U3","U4","U5","U6","U7","U8","U9"]
+    for key in keys:
+        prompt_context = '''Here are some details about the conversational style context of person X.  
+        Use this information when infering the style of person X. The style context is given in a json format,  with the following metrics: word length distribution,  adjectives, functional words, emojis, style keywords, syntax keywords. For each of these metrics, we have extracted the top 5 most frequently used. For each metric,  the data is presented in a list of tuples as :(metric,frequency of occurences). Below is person X style context:{ '''
+        p_context_mistral = ''
+        p_context_gpt = ''
+        # print(context_dict[key]['adjectives'])
+        list_word_distribution = ast.literal_eval(context_dict[key]['word_distribution'])[0:5]
+        prompt_context += 'word_distribution: ' + str(list_word_distribution) + ', \n'
+        
+        list_adjectives = ast.literal_eval(context_dict[key]['adjectives'])[0:5]
+        prompt_context += 'adjectives: ' + str(list_adjectives) + ', \n'
+        
+        list_functional_words = ast.literal_eval(context_dict[key]['functional_words'])[0:5]
+        prompt_context += 'functional_words: ' + str(list_functional_words) + ', \n'
+    
+        list_punctuations = ast.literal_eval(context_dict[key]['punctuations'])[0:5]
+        prompt_context += 'punctuations: ' + str(list_punctuations) + ', \n'
+        
+        list_emojis = ast.literal_eval(context_dict[key]['emojis'])[0:5]
+        prompt_context += 'emojis: ' + str(list_emojis) + ', \n'
+    
+        p_context_mistral = prompt_context
+        p_context_gpt = prompt_context
+        
+        list_mistral_style = ast.literal_eval(context_dict[key]['style_mistral'])[0:5]
+        p_context_mistral += 'style: ' + str(list_mistral_style) + ', \n'
+    
+        list_mistral_syntax = ast.literal_eval(context_dict[key]['syntax_mistral'])[0:5]
+        p_context_mistral += 'syntax: ' + str(list_mistral_syntax) + ' \n'
+    
+        list_gpt_style = ast.literal_eval(context_dict[key]['style_gpt'])[0:5]
+        p_context_gpt += 'style: ' + str(list_gpt_style) + ', \n'
+       
+        list_gpt_syntax = ast.literal_eval(context_dict[key]['syntax_gpt'])[0:5]
+        p_context_gpt += 'syntax: ' + str(list_gpt_syntax) + ' \n'
+    
+        p_context_mistral+= ' }'
+        p_context_gpt+= ' }'
+    
+        # print(list_word_distribution)
+        # print(list_adjectives)
+        # print(list_functional_words)
+        # print(list_punctuations)
+        # print(list_emojis)
+        # print(list_mistral_style)
+        # print(list_mistral_syntax)
+        # print(list_gpt_style)
+        # print(list_gpt_syntax)
+        # print(p_context_mistral)
+        # print(p_context_gpt)
+        
+        with open(output_context_folder + key + '_mistral_context.txt', "w") as f:
+            f.write(p_context_mistral)
+    
+        with open(output_context_folder + key + '_gpt_context.txt', "w") as f:
+            f.write(p_context_gpt)        
+        
+        
+        
+        
 
