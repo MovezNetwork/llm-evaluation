@@ -75,7 +75,7 @@ def prompting_mistral(prompt_id,x_shots,mistral_m,input_sentences,save_online,pa
     surfdrive_url_prompts = config.get('credentials', 'surfdrive_url_prompts')
     output_llm_folder_path = 'output_llm_data/'
     output_shots_data = 'output_x_shots_data/'
-    
+    output_context = 'output_context/'    
     
     # reading prompt template components - depends on prompt_id
     df_prompts = pd.read_csv(surfdrive_url_prompts,sep=';').reset_index()
@@ -109,7 +109,6 @@ def prompting_mistral(prompt_id,x_shots,mistral_m,input_sentences,save_online,pa
                 formatted_string = mistral_prompt_system_content + '\n'
                 for i in range(0, len(x_shots_list), 2):
                     formatted_string += mistral_prompt_x_shot_template.format(x_shots_list[i], x_shots_list[i + 1]) + "\n\n"
-                formatted_string += mistral_prompt_content_addition
             # Non-parallel data prompt prompt
             else:
                 for index, row in df_shots.iterrows():
@@ -119,12 +118,22 @@ def prompting_mistral(prompt_id,x_shots,mistral_m,input_sentences,save_online,pa
                 formatted_string = mistral_prompt_system_content + '\n'
                 for i in range(0, len(x_shots_list)):
                     formatted_string += mistral_prompt_x_shot_template.format(x_shots_list[i]) + "\n\n"
-                formatted_string += mistral_prompt_content_addition
 
+            context_string = ''
+            # context is optional
+            if context:
+                with open(output_context + username + '_mistral_context.txt', "r") as f:
+                    context_string = f.read()
+            
+            
+            formatted_string += '\n' + context_string + '\n'
+            formatted_string += mistral_prompt_content_addition
+            
+            
             # Query Mistral API
             mistral_client = MistralClient(api_key = api_key_mistral)
             final_output = []
-            for i in range(0,len(input_sentences)-1):
+            for i in range(0,len(input_sentences)):
                 query = f"{formatted_string.replace('{}', f'{{{input_sentences[i]}}}')}"
                 messages = [ ChatMessage(role = "user", content = query) ]
                 # No streaming
@@ -136,6 +145,21 @@ def prompting_mistral(prompt_id,x_shots,mistral_m,input_sentences,save_online,pa
 
             # Save mistral output in a csv (locally), and Weights&Biases (online, optional)
             df_mistral_output = pd.DataFrame(final_output)
+            
+            # # EXTRA SENTENCE LOGIC
+            # file_finder = "user_" + username + "_promptID_" + prompt_id + '_model_'+ mistral_m + '_shots_' + str(df_shots.shape[0])
+            # files_affected = 0
+            # for filename in os.listdir(output_llm_folder_path):
+            #     if filename.endswith(".csv") and file_finder in filename:
+            #         files_affected = files_affected + 1
+            #         # File matches the pattern, open it as a DataFrame
+            #         file_path = os.path.join(output_llm_folder_path, filename)
+            #         df = pd.read_csv(file_path)
+            #         updated_df = pd.concat([df, df_mistral_output], ignore_index=True)
+            #         updated_df.to_csv(output_llm_folder_path+filename, index=False)
+            #         print('Updated: ',filename)
+            # print('Files affected: ',files_affected)
+            
             df_mistral_output.to_csv(output_llm_folder_path + "user_" + username + "_promptID_" + prompt_id + '_model_'+ mistral_m + '_shots_' + str(df_shots.shape[0]) + "_run_id_" + run_id + '_output.csv', index=False)
 
             dict_mistral_output[username] = df_mistral_output
@@ -161,6 +185,7 @@ def prompting_gpt(prompt_id,x_shots,gpt_m,input_sentences,save_online,parallel_d
     surfdrive_url_prompts = config.get('credentials', 'surfdrive_url_prompts')
     output_llm_folder_path = 'output_llm_data/'
     output_shots_data = 'output_x_shots_data/'
+    output_context = 'output_context/'
     gpt_temperature = 0.2
     
     # reading prompt template components - depends on prompt_id
@@ -180,14 +205,8 @@ def prompting_gpt(prompt_id,x_shots,gpt_m,input_sentences,save_online,parallel_d
             username = file[20:22]
             run_id = str(random.randint(100000, 999999))            
             df_shots = pd.read_csv(file)
-            # print(type(username)) 
-            # print(type(prompt_id))
-            # print(type(gpt_m)) 
-            # print(type(str(x_shots)))
-            # print(type(run_id))
+
             gpt_final_path = str(output_llm_folder_path) + "user_" + str(username) + "_promptID_" + str(prompt_id) + '_model_'+ str(gpt_m) + '_shots_' + str(df_shots.shape[0]) + "_run_id_" + str(run_id) + '_output.csv'
-            
-          
             print(gpt_final_path)
             # Update the prompt template with the x-shot sentences
             x_shots_list = []
@@ -203,7 +222,7 @@ def prompting_gpt(prompt_id,x_shots,gpt_m,input_sentences,save_online,parallel_d
                 formatted_string = ''
                 for i in range(0, len(x_shots_list), 2):
                     formatted_string += gpt_prompt_x_shot_template.format(x_shots_list[i], x_shots_list[i + 1]) + "\n\n"
-                formatted_string += gpt_prompt_content_addition
+                
             # Non-parallel data prompt prompt
             else:
                 for index, row in df_shots.iterrows():
@@ -213,15 +232,23 @@ def prompting_gpt(prompt_id,x_shots,gpt_m,input_sentences,save_online,parallel_d
                 formatted_string = ''
                 for i in range(0, len(x_shots_list)):
                     formatted_string += gpt_prompt_x_shot_template.format(x_shots_list[i]) + "\n\n"
-                formatted_string += gpt_prompt_content_addition
                 
+            
+            context_string = ''
+            # context is optional
+            if context:
+                with open(output_context + username + '_gpt_context.txt', "r") as f:
+                    context_string = f.read()
+                
+            formatted_string += '\n' + context_string + '\n'
+            
+            formatted_string += gpt_prompt_content_addition
             # Query gpt API
             gpt_client = OpenAI(api_key = api_key_gpt)
             final_output = []
-            for i in range(0,len(input_sentences)-1):
+            for i in range(0,len(input_sentences)):
                 query = f"{formatted_string.replace('{}', f'{{{input_sentences[i]}}}')}"
                 message = [{"role": "system", "content": gpt_prompt_system_content}, {"role": "user", "content":query}]
-                
                 # No streaming
                 chat_response = gpt_client.chat.completions.create(
                     model = gpt_m,
@@ -242,6 +269,21 @@ def prompting_gpt(prompt_id,x_shots,gpt_m,input_sentences,save_online,parallel_d
 
             # Save gpt output in a csv (locally), and Weights&Biases (online, optional)
             df_gpt_output = pd.DataFrame(final_output)
+
+            # # EXTRA SENTENCE LOGIC
+            # file_finder = "user_" + username + "_promptID_" + prompt_id + '_model_'+ gpt_m + '_shots_' + str(df_shots.shape[0])
+            # files_affected = 0
+            # for filename in os.listdir(output_llm_folder_path):
+            #     if filename.endswith(".csv") and file_finder in filename:
+            #         files_affected = files_affected + 1
+            #         # File matches the pattern, open it as a DataFrame
+            #         file_path = os.path.join(output_llm_folder_path, filename)
+            #         df = pd.read_csv(file_path)
+            #         updated_df = pd.concat([df, df_gpt_output], ignore_index=True)
+            #         updated_df.to_csv(output_llm_folder_path+filename, index=False)
+            #         print('Updated: ',filename)
+            # print('Files affected: ',files_affected)
+            
             df_gpt_output.to_csv(gpt_final_path, index=False)
 
             dict_gpt_output[username] = df_gpt_output
