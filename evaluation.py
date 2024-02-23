@@ -5,7 +5,7 @@ from openai import OpenAI
 import pandas as pd
 
 def get_evaluation_mistral(prompts_dict, input_data, output_name):
-    output_evaluation_folder_path = 'output_evaluation/'
+    output_evaluation_folder_path = 'output_evaluation/Mistral/'
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -72,7 +72,7 @@ def get_evaluation_mistral(prompts_dict, input_data, output_name):
 
 
 def get_evaluation_gpt(prompts_dict, input_data, output_name):
-    output_evaluation_folder_path = 'output_evaluation/'
+    output_evaluation_folder_path = 'output_evaluation/GPT/'
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -91,7 +91,7 @@ def get_evaluation_gpt(prompts_dict, input_data, output_name):
     explanations_fluency = []
 
     # Accuracy
-    query_accuracy = get_accuracy_prompt(prompts_dict, row)
+    query_accuracy = get_accuracy_prompt(prompts_dict, input_data)
     message_accuracy = [{"role": "user", "content": query_accuracy}]
     chat_response_accuracy = gtp_client.chat.completions.create(
         model=gpt_m,
@@ -105,7 +105,7 @@ def get_evaluation_gpt(prompts_dict, input_data, output_name):
     explanations_accuracy.append(response_accuracy)
 
     # Content preservation
-    query_content_preservation = get_content_preservation_prompt(prompts_dict, row)
+    query_content_preservation = get_content_preservation_prompt(prompts_dict, input_data)
     message_content_preservation = [{"role": "user", "content": query_content_preservation}]
     chat_response_content_preservation = gtp_client.chat.completions.create(
         model=gpt_m,
@@ -119,7 +119,7 @@ def get_evaluation_gpt(prompts_dict, input_data, output_name):
     explanations_content_preservation.append(response_content_preservation)
 
     # Fluency
-    query_fluency = get_fluency_prompt(prompts_dict, row)
+    query_fluency = get_fluency_prompt(prompts_dict, input_data)
     message_fluency = [{"role": "user", "content": query_fluency}]
     chat_response_fluency = gtp_client.chat.completions.create(
         model=gpt_m,
