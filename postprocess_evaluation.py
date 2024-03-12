@@ -3,6 +3,7 @@ import re
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+import configparser
 
 
 def per_evaluator_stats(df,score):
@@ -144,3 +145,31 @@ def per_user_plots(df,score):
     fig.update_traces(quartilemethod="exclusive") # or "inclusive", or "linear" by default
     fig.update_layout(title=score + ': per context',legend_title_text='User', width=1000, height=600)
     fig.show()
+
+
+def per_sentence_plots(df,score):
+    
+    output_evaluation_folder_path = 'output_evaluation/'
+    config = configparser.ConfigParser()
+    # Read the configuration file
+    config.read('config.ini')
+    surfdrive_url_input_sentences = config.get('credentials', 'surfdrive_url_input_sentences')
+    input_sentences = pd.read_csv(surfdrive_url_input_sentences,sep=';')
+    input_sentences = input_sentences[0:10]
+
+    df_per_message = df.groupby('original')[score].value_counts().reset_index()
+    df_per_message = pd.merge(input_sentences, df_per_message, left_on='sentences', right_on='original', how='outer')
+    df_per_message = df_per_message.drop(columns=['Unnamed: 2','original'])
+    
+    fig = px.scatter(df_per_message, x="idSentence", y=score, color=score, size='count', width=1000, height=600)
+    fig.show()
+
+
+    df_per_message = df.groupby('original')[score].value_counts().reset_index()
+    df_per_message = df_per_message.pivot_table(index=['original'], columns=score, values='count', fill_value=0)
+    df_per_message = df_per_message.reset_index()
+    df_per_message['score'] = score
+    df_per_message = pd.merge(input_sentences, df_per_message, left_on='sentences', right_on='original', how='outer')
+    df_per_message = df_per_message.drop(columns=['Unnamed: 2','original'])
+
+    df_per_message.to_csv(output_evaluation_folder_path + 'per_sentence_summary_values_' + score + '.csv')
