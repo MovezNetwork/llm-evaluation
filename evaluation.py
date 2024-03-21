@@ -5,7 +5,7 @@ from openai import OpenAI
 import pandas as pd
 
 def get_evaluation_mistral(prompts_dict, input_data, output_name):
-    output_evaluation_folder_path = 'output_evaluation/Mistral/'
+    output_evaluation_folder_path = 'f8_llm_evaluation_data/Mistral/'
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -72,7 +72,7 @@ def get_evaluation_mistral(prompts_dict, input_data, output_name):
 
 
 def get_evaluation_gpt(prompts_dict, input_data, output_name):
-    output_evaluation_folder_path = 'output_evaluation/GPT/'
+    output_evaluation_folder_path = 'f8_llm_evaluation_data/GPT/'
     config = configparser.ConfigParser()
     config.read('config.ini')
 

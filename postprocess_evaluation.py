@@ -7,7 +7,7 @@ import configparser
 
 
 def per_evaluator_stats(df,score):
-    output_evaluation_folder_path = 'output_evaluation/'
+    output_evaluation_folder_path = 'f9_processed_llm_evaluation_data/'
 
     # Mode: The most frequently occurring value in the score_accuracy.
     # Quantiles: Percentiles such as the 25th, 75th, and possibly other percentiles to understand the distribution of scores.
@@ -44,7 +44,7 @@ def per_evaluator_stats(df,score):
 
 
 def per_evaluator_plots(df,score):
-    output_evaluation_folder_path = 'output_evaluation/'
+    output_evaluation_folder_path = 'f9_processed_llm_evaluation_data/'
     prompting_type = df['prompting'].unique()[0]
     
     df = df.sort_values(by='model', ascending=True)
@@ -95,7 +95,7 @@ def per_context_plots(df,evaluator,score):
     fig.show()
 
 def per_user_plots(df,score):
-    output_evaluation_folder_path = 'output_evaluation/'
+    output_evaluation_folder_path = 'f9_processed_llm_evaluation_data/'
 
     df = df.sort_values(by='user', ascending=True)
 
@@ -148,7 +148,7 @@ def per_user_plots(df,score):
 
 def per_sentence_plots(df,score):
     
-    output_evaluation_folder_path = 'output_evaluation/'
+    output_evaluation_folder_path = 'f9_processed_llm_evaluation_data/'
     config = configparser.ConfigParser()
     # Read the configuration file
     config.read('config.ini')
