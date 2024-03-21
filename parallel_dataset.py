@@ -33,7 +33,7 @@ def extract_info(row):
 
 
 def get_mistral_medium_output(input_sentences,username):
-    parallel_folder = 'output_parallel_data/'
+    parallel_folder = 'f2_parallel_data/'
     config = configparser.ConfigParser()
     # Read the configuration file
     config.read('config.ini')
@@ -129,7 +129,8 @@ def get_gpt_4_output(input_sentences,username):
         
 
 def get_keyword_details():
-    parallel_folder = 'output_parallel_data/'
+    parallel_folder = 'f2_prompt_ready_chat_data/'
+    context_folder = 'f3_context_data/'
     csv_files = glob.glob(parallel_folder + '*')
     
     usernames= []
@@ -141,7 +142,7 @@ def get_keyword_details():
         # Check if the file ends with 'chat_llm.csv'
     
         if file.endswith('parallel_data_mistral_medium.csv'):
-            username = file[21:23]
+            username = file.split('/')[1][:2]
             df_test = pd.read_csv(file)
             # print('Username ', username, '\n MISTRAL Keywords:',df_test['syntax_keywords'])
             style_keywords_lists = [ast.literal_eval(keyword_str) for keyword_str in list(df_test['style_keywords'])]
@@ -159,7 +160,7 @@ def get_keyword_details():
             # Sort the DataFrame by frequency in descending order
             style_keyword_counts = style_keyword_counts.sort_values(by='frequency', ascending=False)
             # Display the final DataFrame
-            style_keyword_counts.to_csv(parallel_folder + username + '_mistral_style_keywords_details.csv')
+            style_keyword_counts.to_csv(context_folder + username + '_mistral_style_keywords_details.csv')
             
             # Create a WordCloud
             wordcloud = WordCloud(width=800, height=400, background_color='white').generate(' '.join(all_style_keywords))
@@ -169,7 +170,7 @@ def get_keyword_details():
             plt.axis('off')
             plt.title('Mistral Style Keyword Word Cloud. User ' + username)
             # Save the WordCloud image to a PNG file
-            plt.savefig(parallel_folder + username + '_mistral_style_keyword_cloud_image.png', bbox_inches='tight')
+            plt.savefig(context_folder + username + '_mistral_style_keyword_cloud_image.png', bbox_inches='tight')
             matplotlib.pyplot.close()
             
             # NOW THE SYNTAX KEYWORDS
@@ -188,7 +189,7 @@ def get_keyword_details():
             # Sort the DataFrame by frequency in descending order
             syntax_keyword_counts = syntax_keyword_counts.sort_values(by='frequency', ascending=False)
             # Display the final DataFrame
-            syntax_keyword_counts.to_csv(parallel_folder + username + '_mistral_syntax_keywords_details.csv')
+            syntax_keyword_counts.to_csv(context_folder + username + '_mistral_syntax_keywords_details.csv')
             
             # Create a WordCloud
             wordcloud = WordCloud(width=800, height=400, background_color='white').generate(' '.join(all_syntax_keywords))
@@ -198,11 +199,11 @@ def get_keyword_details():
             plt.axis('off')
             plt.title('Mistral Syntax Keyword Word Cloud. User ' + username)
             # Save the WordCloud image to a PNG file
-            plt.savefig(parallel_folder + username + '_mistral_syntax_keyword_cloud_image.png', bbox_inches='tight')
+            plt.savefig(context_folder + username + '_mistral_syntax_keyword_cloud_image.png', bbox_inches='tight')
             matplotlib.pyplot.close()
             
         elif file.endswith('parallel_data_gpt_4.csv'):
-            username = file[21:23]
+            username = file.split('/')[1][:2]
             df_test = pd.read_csv(file)
             # print('Username ', username, '\n GPT Keywords:',df_test['syntax_keywords'])
             style_keywords_lists = [list(map(str.lower, ast.literal_eval(keyword_str))) for keyword_str in list(df_test['style_keywords'])]
@@ -220,7 +221,7 @@ def get_keyword_details():
             # Sort the DataFrame by frequency in descending order
             style_keyword_counts = style_keyword_counts.sort_values(by='frequency', ascending=False)
             # Display the final DataFrame
-            style_keyword_counts.to_csv(parallel_folder + username + '_gpt_4_style_keywords_details.csv')
+            style_keyword_counts.to_csv(context_folder + username + '_gpt_4_style_keywords_details.csv')
             
             # Create a WordCloud
             wordcloud = WordCloud(width=800, height=400, background_color='white').generate(' '.join(all_style_keywords))
@@ -230,7 +231,7 @@ def get_keyword_details():
             plt.axis('off')
             plt.title('GPT4 Style Keyword Word Cloud. User ' + username)
             # Save the WordCloud image to a PNG file
-            plt.savefig(parallel_folder + username + '_gpt_4_style_keyword_cloud_image.png', bbox_inches='tight')
+            plt.savefig(context_folder + username + '_gpt_4_style_keyword_cloud_image.png', bbox_inches='tight')
             matplotlib.pyplot.close()
             
             syntax_keywords_lists = [list(map(str.lower, ast.literal_eval(keyword_str))) for keyword_str in list(df_test['syntax_keywords'])]
@@ -248,7 +249,7 @@ def get_keyword_details():
             # Sort the DataFrame by frequency in descending order
             syntax_keyword_counts = syntax_keyword_counts.sort_values(by='frequency', ascending=False)
             # Display the final DataFrame
-            syntax_keyword_counts.to_csv(parallel_folder + username + '_gpt_4_syntax_keywords_details.csv')
+            syntax_keyword_counts.to_csv(context_folder + username + '_gpt_4_syntax_keywords_details.csv')
 
             wordcloud = WordCloud(width=800, height=400, background_color='white').generate(' '.join(all_syntax_keywords))
             # Plot the WordCloud
@@ -257,7 +258,7 @@ def get_keyword_details():
             plt.axis('off')
             plt.title('GPT4 Syntax Keyword Word Cloud. User ' + username)
             # Save the WordCloud image to a PNG file
-            plt.savefig(parallel_folder + username + '_gpt_4_syntax_keyword_cloud_image.png', bbox_inches='tight')
+            plt.savefig(context_folder + username + '_gpt_4_syntax_keyword_cloud_image.png', bbox_inches='tight')
             matplotlib.pyplot.close()
             
 def delete_after_character(input_string, character):
@@ -288,7 +289,7 @@ def postprocess_rows(row):
         })
 
 def postprocess_files():
-    output_parallel_data = 'output_parallel_data/'
+    output_parallel_data = 'f2_prompt_ready_chat_data/'
     csv_files = glob.glob(output_parallel_data + '/*.csv')
 
     for file in csv_files:
@@ -337,12 +338,12 @@ def generate_context():
     context_dict["U8"] = {}
     context_dict["U9"] = {}
     
-    output_chat_data = "output_chat_data/"
-    output_context_folder = 'output_context/'
+    output_chat_data = "f1_processed_user_chat_data/"
+    output_context_folder = 'f3_context_data/'
     
     csv_files = glob.glob(output_chat_data + '*')
     for file in csv_files:
-        username = file[17:19]
+        username = file.split('/')[1][:2]
         
         if(file.find('word_distribution') != -1):
             df_words = pd.read_csv(file) 

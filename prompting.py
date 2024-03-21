@@ -13,7 +13,7 @@ import wandb
 import re
 
 def generate_x_shots_files():
-    output_parallel_data = 'output_parallel_data/'
+    output_parallel_data = 'f2_prompt_ready_chat_data/'
     output_shots_data = 'output_x_shots_data/'
     seed_value = 42  
     # read the messages input files
