@@ -67,13 +67,12 @@ def per_evaluator_plots(df,score):
     pivot_df = pivot_df.sort_values(by=['evaluator','model'])
     pivot_df.to_csv(output_evaluation_folder_path + 'per_score_values_'+ prompting_type + '_' + score+ '.csv')
     
-    
-    df = df.groupby(['model','evaluator'])[score].value_counts().reset_index()
+   
     fig = px.scatter(df, x="model", y=score, color=score,
                      size='count', hover_data=['evaluator'], width=1000, height=600)
     fig.show()
 
-    print(pivot_df.to_string())
+   
 
 
     
