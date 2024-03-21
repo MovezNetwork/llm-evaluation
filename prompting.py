@@ -14,7 +14,7 @@ import re
 
 def generate_x_shots_files():
     output_parallel_data = 'f2_prompt_ready_chat_data/'
-    output_shots_data = 'output_x_shots_data/'
+    output_shots_data = 'f4_shots_data/'
     seed_value = 42  
     # read the messages input files
     csv_files = glob.glob(output_parallel_data + '*')
@@ -22,7 +22,7 @@ def generate_x_shots_files():
     
     for file in csv_files:
         #read the username
-        username = file[21:23]
+        username = file.split('/')[1][:2]
         if file.endswith('mistral_medium.csv'):
             df_mistral = pd.read_csv(file)
             possible_rows = list(range(df_mistral.shape[0]))
@@ -74,9 +74,9 @@ def prompting_mistral(prompt_id,x_shots,mistral_m,input_sentences,save_online,pa
     config.read('config.ini')
     api_key_mistral = config.get('credentials', 'api_key_mistral')
     surfdrive_url_prompts = config.get('credentials', 'surfdrive_url_prompts')
-    output_llm_folder_path = 'output_llm_data/'
-    output_shots_data = 'output_x_shots_data/'
-    output_context = 'output_context/'    
+    output_llm_folder_path = 'f6_llm_tst_data/'
+    output_shots_data = 'f4_shots_data/'
+    output_context = 'f3_context_data/'    
     
     # reading prompt template components - depends on prompt_id
     df_prompts = pd.read_csv(surfdrive_url_prompts,sep=';').reset_index()
@@ -184,9 +184,9 @@ def prompting_gpt(prompt_id,x_shots,gpt_m,input_sentences,save_online,parallel_d
     config.read('config.ini')
     api_key_gpt = config.get('credentials', 'api_key_openai')
     surfdrive_url_prompts = config.get('credentials', 'surfdrive_url_prompts')
-    output_llm_folder_path = 'output_llm_data/'
-    output_shots_data = 'output_x_shots_data/'
-    output_context = 'output_context/'
+    output_llm_folder_path = 'f6_llm_tst_data/'
+    output_shots_data = 'f4_shots_data/'
+    output_context = 'f3_context_data/'
     gpt_temperature = 0.2
     
     # reading prompt template components - depends on prompt_id

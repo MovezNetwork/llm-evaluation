@@ -4,10 +4,10 @@ output_parallel_data_old/
 mlartifacts/
 mlruns/
 f1_processed_user_chat_data/
-output_llm_data/
+f6_llm_tst_data/
 wandb/
 f0_input_user_chat_data/
-output_x_shots_data/
+f4_shots_data/
 f2_prompt_ready_chat_data
 config.ini
 .ipynb_checkpoints/
