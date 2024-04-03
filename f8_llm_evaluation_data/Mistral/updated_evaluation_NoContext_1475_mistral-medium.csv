@@ -1,0 +1,12 @@
+fileID,user,promptID,model,shots,runID,original,rewritten_sentence,your_text,score_accuracy,explanation_accuracy
+216,U8,1,gpt-4,3,361189,"Just getting my vitamins in at the school canteen: I am having Quinoa, chickpeas, and some of the soy chicken. And I have math exam soon.","Just getting my vitamins in at the school canteen, you know, having some Quinoa, chickpeas, and a bit of that soy chicken. And guess what? I have a math exam coming up soon, ahaha","Getting my vitamins in at the school canteen right now. I am having Quinoa, chickpeas, and some of soy chicken. I have a math exam soon so I have to study asap!",7,"Score: 7
+
+Explanation:
+
+There are several differences in syntax, semantics, and use of emojis between T1 and T2 that contribute to this score.
+
+1. Syntax: The sentences in T1 are shorter and simpler in structure compared to T2. T2 contains more complex sentences with multiple clauses, while T1 has shorter, more direct sentences.
+2. Semantics: While both T1 and T2 contain personal anecdotes, T1 focuses on the speaker's daily routine (eating at the school canteen and an upcoming math exam) while T2 discusses travel experiences and preferences. Although the difference in topics is not relevant for scoring, the way the speaker talks about these topics (semantics) can contribute to the difference in style.
+3. Emojis: T1 contains one instance of an ""ahaha"" emoticon, which indicates a light-hearted, informal tone. In contrast, T2 does not contain any emojis.
+
+Overall, while there are some similarities in the conversational style of T1 and T2 (such as the use of first-person pronouns and an informal tone), there are enough differences in syntax, semantics, and use of emojis to warrant a score of 7 on a scale of 1-10."
