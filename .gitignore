@@ -17,3 +17,4 @@ config.ini
 __pycache__/
  output_evaluationPrompts_NoContext_complete_output.csv
 /output_evaluation/
+f8_llm_evaluation_data

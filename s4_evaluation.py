@@ -72,7 +72,7 @@ def get_evaluation_mistral(prompts_dict, input_data, output_name):
 
 
 
-def get_updated_evaluation_mistral(prompts_dict, input_data, output_name):
+def get_updated_evaluation_mistral(prompts_dict, input_data, output_name,metrics):
     output_evaluation_folder_path = 'f8_llm_evaluation_data/Mistral/'
     config = configparser.ConfigParser()
     config.read('config.ini')
@@ -81,38 +81,68 @@ def get_updated_evaluation_mistral(prompts_dict, input_data, output_name):
     mistral_client = MistralClient(api_key=api_key_mistral)
     mistral_m = "mistral-medium"
 
-    scores_accuracy = []
-    explanations_accuracy = []
+    scores = []
+    explanations = []
 
-    # Accuracy
-    
-    query_accuracy = get_updated_accuracy_prompt(prompts_dict, input_data)
-    print('prompt query: ',query_accuracy,' \n')
-    messages_accuracy = [ChatMessage(role="user", content=query_accuracy)]
+    score_column = ''
+       
+    query = get_updated_evaluation_prompt(prompts_dict, input_data,metrics)
+    # print('prompt query: ',query,' \n')
+    messages = [ChatMessage(role="user", content=query)]
     # No streaming
-    chat_response_accuracy = mistral_client.chat(
+    chat_response = mistral_client.chat(
         model=mistral_m,
-        messages=messages_accuracy,
+        messages=messages,
     )
-    response_accuracy = chat_response_accuracy.choices[0].message.content
-    print('prompt response: ',response_accuracy,' \n')
-    scores_accuracy.append(response_accuracy.split('\n')[0].split(' ')[1])
-    explanations_accuracy.append(response_accuracy)
+    response = chat_response.choices[0].message.content
+    # print('prompt response: ',response,' \n')
+    if(metrics == 'feedback_generation'):
+        scores.append('NaN')
+        score_column = 'tst_feedback'
+    if(metrics == 'feedback_evaluation'):
+        scores.append(response.split('\n')[0].split(' ')[1])
+        score_column = 'accuracy_feedback'
+    else:
+        scores.append(response.split('\n')[0].split(' ')[1])
+        score_column = 'score_' + metrics
+    explanations.append(response)
 
    
 
     output = pd.DataFrame(input_data).T
-    output['score_accuracy'] = scores_accuracy
-
-    output['explanation_accuracy'] = explanations_accuracy
+    output[score_column] = scores
+    output['explanation_' + metrics] = explanations
 
     
     # Save output in a csv (locally)
-    output.to_csv(output_evaluation_folder_path + "updated_evaluation_" + output_name + '_mistral-medium.csv', index=False)
+    output.to_csv(output_evaluation_folder_path + "updated_evaluation_"+ metrics + '_' + output_name + '_mistral-medium.csv', index=False)
 
     return output
 
 
+def get_updated_evaluation_prompt(prompts_dict, row, metrics):
+    
+    if metrics == 'feedback_evaluation':
+        tst_text = row['tst_feedback']
+    else:
+        tst_text = row['rewritten_sentence']
+    string_llm = f"{prompts_dict.get('prompt_llm').replace('{}', f'{{{tst_text}}}')}"
+
+    # reads the user-based input examples - from 5 shot mistral
+    df_m = pd.read_csv('f4_shots_data/' + row['user'] + '_mistral_shots_5.csv')
+    user_style_string = '; '.join(df_m['original'])
+    string_accuracy = f"{prompts_dict.get('prompt_s2').replace('{}', f'{{{user_style_string}}}')}"
+
+    if metrics == 'feedback_generation':
+        # use the explanation of the accuracy score for the feedback generation in the inference part of the string
+        explanation_string = row['new_explanation_accuracy']
+        string_inference = f"{prompts_dict.get('prompt_inference').replace('{}', f'{{{explanation_string}}}')}"
+    else:
+        string_inference = prompts_dict.get('prompt_inference')
+
+    prompt = string_llm + string_accuracy + string_inference
+    
+    return prompt
 
 def get_evaluation_gpt(prompts_dict, input_data, output_name):
     output_evaluation_folder_path = 'f8_llm_evaluation_data/GPT/'
@@ -196,13 +226,6 @@ def get_accuracy_prompt(prompts_dict, row):
     return prompt
 
 
-def get_updated_accuracy_prompt(prompts_dict, row):
-    string_llm = f"{prompts_dict.get('prompt_llm').replace('{}', f'{{{row.iloc[7]}}}')}"
-    df_m = pd.read_csv('f4_shots_data/' + row['user'] + '_mistral_shots_5.csv')
-    user_style_string = '; '.join(df_m['original'])
-    string_accuracy = f"{prompts_dict.get('prompt_accuracy_s2').replace('{}', f'{{{user_style_string}}}')}"
-    prompt = string_llm + string_accuracy + prompts_dict.get('prompt_accuracy_inference')
-    return prompt
 
 
 def get_content_preservation_prompt(prompts_dict, row):
