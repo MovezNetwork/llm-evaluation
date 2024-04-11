@@ -9,11 +9,14 @@ def get_input_data():
     mistral_context = pd.read_csv(output_processed_evaluation_folder_path + 'Evaluation_Context_mistral-medium_corrected.csv')
     gpt_noContext = pd.read_csv(output_processed_evaluation_folder_path + 'Evaluation_NoContext_gpt-4_corrected.csv')
     gpt_context = pd.read_csv(output_processed_evaluation_folder_path + 'Evaluation_Context_gpt-4_corrected.csv')
+
+    # adding evaluator info
     mistral_noContext['evaluator'] = 'mistral-medium'
     gpt_noContext['evaluator'] = 'gpt-4'
     mistral_context['evaluator'] = 'mistral-medium'
     gpt_context['evaluator'] = 'gpt-4'
-    
+
+    # adding parallel data info
     is_parallel_map = {0: True, 1: True, 2: False, 3: False}
     mistral_noContext['isParallel'] = mistral_noContext['promptID'].map(is_parallel_map)
     gpt_noContext['isParallel'] = gpt_noContext['promptID'].map(is_parallel_map)
@@ -22,11 +25,14 @@ def get_input_data():
     
     df_noContext = pd.concat([gpt_noContext, mistral_noContext], axis=0)
     df_context = pd.concat([gpt_context, mistral_context], axis=0)
+
+    new_names = {'original': 'neutral_sentence','rewritten_sentence': 'tst_sentence_0', 'your_text': 'user_sentence'}
     df_all = pd.concat([df_noContext, df_context], axis=0)
-    
+    df_all.rename(columns=new_names, inplace=True)
+
     return df_all
 
-def display_interactive_dataframe(df):
+def display_interactive_dataframe(df,col_display):
     # Create dropdown widgets for each column you want to filter on
     user_dropdown = widgets.Dropdown(options=['All'] + df['user'].unique().tolist(), value = df['user'].unique().tolist()[0], description='User:')
     promptID_dropdown = widgets.Dropdown(options=['All'] + df['promptID'].unique().tolist(), value = df['promptID'].unique().tolist()[0],description='Prompt ID:')
@@ -57,13 +63,15 @@ def display_interactive_dataframe(df):
 
         # Display columns based on score type selection
         if score_type == 'None':
-            display_data = filtered_df[['original', 'rewritten_sentence','your_text']]
+            display_data = filtered_df[col_display]
         elif score_type in ['Accuracy', 'Content_Preservation', 'Fluency']:
             explanation_column = f'explanation_{score_type.lower()}'
-            display_data = filtered_df[['original', 'rewritten_sentence','your_text', explanation_column]]
+            updated_column_list = col_display.copy()
+            updated_column_list.append(explanation_column)
+            display_data = filtered_df[updated_column_list]
         else:
             print("Invalid score type selected. Displaying original and rewritten_sentence columns only.")
-            display_data = filtered_df[['original', 'rewritten_sentence','your_text']]
+            display_data = filtered_df[col_display]
 
         # HTML table styling
         html_table = display_data.to_html(index=False)
