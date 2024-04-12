@@ -154,22 +154,16 @@ def get_accuracy_prompt(prompts_dict, row):
     prompt = string_llm + string_accuracy + prompts_dict.get('prompt_accuracy_inference')
     return prompt
 
-
-
-
 def get_content_preservation_prompt(prompts_dict, row):
     string_llm = f"{prompts_dict.get('prompt_llm').replace('{}', f'{{{row.iloc[7]}}}')}"
     string_content_preservation = f"{prompts_dict.get('prompt_content_preservation_s2').replace('{}', f'{{{row.iloc[6]}}}')}"
     prompt = string_llm + string_content_preservation + prompts_dict.get('prompt_content_preservation_inference')
     return prompt
 
-
 def get_fluency_prompt(prompts_dict, row):
     string_llm = f"{prompts_dict.get('prompt_llm').replace('{}', f'{{{row.iloc[7]}}}')}"
     prompt = string_llm + prompts_dict.get('prompt_fluency_inference')
     return prompt
-
-
 
 def get_accuracy_score(prompts_dict, input_data, output_name, loop_id):
     output_evaluation_folder_path = 'f8_llm_evaluation_data/Mistral/'
@@ -186,7 +180,7 @@ def get_accuracy_score(prompts_dict, input_data, output_name, loop_id):
     score_column = ''
        
     query = format_accuracy_score_prompt(prompts_dict, input_data,loop_id)
-    # print('Update Accuracy Prompt Query: ',query,' \n')
+    print('Update Accuracy Prompt Query: ',query,' \n')
     messages = [ChatMessage(role="user", content=query)]
     # No streaming
     chat_response = mistral_client.chat(
@@ -194,25 +188,15 @@ def get_accuracy_score(prompts_dict, input_data, output_name, loop_id):
         messages=messages,
     )
     response = chat_response.choices[0].message.content
-    # print('Update Accuracy Prompt Response: ',response,' \n')
-    # if(metrics == 'feedback_generation'):
-    #     scores.append('NaN')
-    #     score_column = 'tst_feedback_2'
-    # elif(metrics == 'feedback_evaluation'):
-    #     scores.append(response.split('\n')[0].split(' ')[1])
-    #     score_column = 'accuracy_feedback_2'
-    # else:
-    #     scores.append(response.split('\n')[0].split(' ')[1])
-    #     score_column = 'score_' + metrics
-
+    print('Update Accuracy Prompt Response: ',response,' \n')
 
     scores.append(response.split('\n')[0].split(' ')[1])
     explanations.append(response)
 
    
     output = pd.DataFrame(input_data).T
-    output['accuracy_'+ str(loop_id)] = scores
-    output['explanation_accuracy' + str(loop_id)] = explanations
+    output['score_accuracy_'+ str(loop_id)] = scores
+    output['explanation_accuracy_' + str(loop_id)] = explanations
 
     
     # Save output in a csv (locally)
@@ -247,7 +231,7 @@ def get_refinement_feedback(prompts_dict, input_data, output_name, loop_id):
     mistral_m = "mistral-medium"
        
     query = format_refinement_feedback_prompt(prompts_dict, input_data, loop_id)
-    # print('Refinement Feedback Prompt Query: ',query,' \n')
+    print('Refinement Feedback Prompt Query: ',query,' \n')
     messages = [ChatMessage(role="user", content=query)]
     # No streaming
     chat_response = mistral_client.chat(
@@ -255,19 +239,18 @@ def get_refinement_feedback(prompts_dict, input_data, output_name, loop_id):
         messages=messages,
     )
     response = chat_response.choices[0].message.content
-    # print('Refinement Feedback Prompt Response: ',response,' \n')
+    print('Refinement Feedback Prompt Response: ',response,' \n')
     output = pd.DataFrame(input_data).T
-    output['tst_sentence_' + str(loop_id)] = ['NaN']
+    output['tst_sentence_' + str(loop_id + 1)] = ['NaN']
     output['explanation_tst_feedback_'  + str(loop_id)] = [response]
 
     # Save output in a csv (locally)
-    output.to_csv(output_evaluation_folder_path + "loop_" + str(loop_id) + "_refinement_feedback_" + '_' + output_name + '_mistral-medium.csv', index=False)
+    output.to_csv(output_evaluation_folder_path + "refine_loop_" + str(loop_id) + "_refinement_feedback_" + '_' + output_name + '_mistral-medium.csv', index=False)
 
     return output
 
 
 def format_refinement_feedback_prompt(prompts_dict, row, loop_id):
-    
 
     tst_text = row['tst_sentence_' + str(loop_id)]
     string_llm = f"{prompts_dict.get('prompt_p1').replace('{}', f'{{{tst_text}}}')}"
@@ -277,11 +260,11 @@ def format_refinement_feedback_prompt(prompts_dict, row, loop_id):
     user_style_string = '; '.join(df_m['original'])
     string_accuracy = f"{prompts_dict.get('prompt_p2').replace('{}', f'{{{user_style_string}}}')}"
 
-
+   
     # use the explanation of the accuracy score for the feedback generation in the inference part of the string
-    if 'explanation_accuracy_' +  str(loop_id) in row.columns:
+    if 'explanation_accuracy_' +  str(loop_id) in row.index:
         explanation_string = row['explanation_accuracy_' +  str(loop_id)]
-    elif 'explanation_tst_feedback_' +  str(loop_id) in row.columns:
+    elif 'explanation_tst_feedback_' +  str(loop_id) in row.index:
          explanation_string = row['explanation_tst_feedback_' +  str(loop_id)]
    
     string_inference = f"{prompts_dict.get('prompt_p3').replace('{}', f'{{{explanation_string}}}')}"
@@ -302,3 +285,23 @@ def extract_explanation(df,column_name):
             # print("Index found at:", index)
     return df
     
+def extract_feedback(df,refine_loop_id):
+   
+    def remove_quotes(s):
+        if s.startswith(' "'):
+            s = s[2:]
+        if s.endswith('"'):
+            s = s[:-1]
+        return s
+        
+    column = 'tst_sentence_' + str(refine_loop_id + 1)
+    
+    for i,r in df.iterrows():
+        s = remove_quotes(r['explanation_tst_feedback_' + str(refine_loop_id)].split(':')[1].split('\n')[0])
+        if s:
+            df[column].iloc[i] = s 
+        else:
+            # some sentences are messed up, as Sentence: is followed with new line, so they require different handling 
+            df[column].iloc[i] = r['explanation_tst_feedback_' + str(refine_loop_id)].split(':')[1].strip().split('\n')[0]
+
+    return df
