@@ -3,6 +3,7 @@ from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 from openai import OpenAI
 import pandas as pd
+import random 
 
 def get_evaluation_mistral(prompts_dict, input_data, output_name):
     output_evaluation_folder_path = 'f8_llm_evaluation_data/Mistral/'
@@ -13,9 +14,6 @@ def get_evaluation_mistral(prompts_dict, input_data, output_name):
     mistral_client = MistralClient(api_key=api_key_mistral)
     mistral_m = "mistral-medium"
 
-    scores_accuracy = []
-    scores_content_preservation = []
-    scores_fluency = []
     explanations_accuracy = []
     explanations_content_preservation = []
     explanations_fluency = []
@@ -85,9 +83,7 @@ def get_evaluation_gpt(prompts_dict, input_data, output_name):
     gpt_max_tokens = 256
     gpt_frequency_penalty = 0.0
 
-    scores_accuracy = []
-    scores_content_preservation = []
-    scores_fluency = []
+
     explanations_accuracy = []
     explanations_content_preservation = []
     explanations_fluency = []
@@ -165,7 +161,7 @@ def get_fluency_prompt(prompts_dict, row):
     prompt = string_llm + prompts_dict.get('prompt_fluency_inference')
     return prompt
 
-def get_accuracy_score(prompts_dict, input_data, output_name, loop_id):
+def get_accuracy_score(prompts_dict, input_data, output_name, loop_id, random_shots):
     output_evaluation_folder_path = 'f8_llm_evaluation_data/Mistral/'
     config = configparser.ConfigParser()
     config.read('config.ini')
@@ -176,11 +172,10 @@ def get_accuracy_score(prompts_dict, input_data, output_name, loop_id):
 
     scores = []
     explanations = []
-
-    score_column = ''
        
-    query = format_accuracy_score_prompt(prompts_dict, input_data,loop_id)
-    print('Update Accuracy Prompt Query: ',query,' \n')
+    query = format_accuracy_score_prompt(prompts_dict, input_data, loop_id, random_shots)
+    # print('Update Accuracy Prompt Query: ',query,' \n')
+
     messages = [ChatMessage(role="user", content=query)]
     # No streaming
     chat_response = mistral_client.chat(
@@ -188,7 +183,7 @@ def get_accuracy_score(prompts_dict, input_data, output_name, loop_id):
         messages=messages,
     )
     response = chat_response.choices[0].message.content
-    print('Update Accuracy Prompt Response: ',response,' \n')
+    # print('Update Accuracy Prompt Response: ',response,' \n')
 
     scores.append(response.split('\n')[0].split(' ')[1])
     explanations.append(response)
@@ -204,14 +199,19 @@ def get_accuracy_score(prompts_dict, input_data, output_name, loop_id):
 
     return output
     
-def format_accuracy_score_prompt(prompts_dict, row, loop_id):
+def format_accuracy_score_prompt(prompts_dict, row, loop_id,random_shots):
 
     tst_text = row['tst_sentence_' + str(loop_id)]
     string_llm = f"{prompts_dict.get('prompt_p1').replace('{}', f'{{{tst_text}}}')}"
 
     # reads the user-based input examples - from 5 shot mistral
-    df_m = pd.read_csv('f4_shots_data/' + row['user'] + '_mistral_shots_5.csv')
-    user_style_string = '; '.join(df_m['original'])
+    if random_shots:
+        df_random_shots = generate_five_shots_data(row['user'])
+        user_style_string = '; '.join(df_random_shots['original'])
+    else:
+        df_static_shots = pd.read_csv('f4_shots_data/' + row['user'] + '_mistral_shots_5.csv')
+        user_style_string = '; '.join(df_static_shots['original'])
+
     string_accuracy = f"{prompts_dict.get('prompt_p2').replace('{}', f'{{{user_style_string}}}')}"
 
     string_inference = prompts_dict.get('prompt_p3')
@@ -219,6 +219,22 @@ def format_accuracy_score_prompt(prompts_dict, row, loop_id):
     prompt = string_llm + string_accuracy + string_inference
     
     return prompt
+
+
+
+def generate_five_shots_data(user):
+    
+    user_data_file_name = 'f2_prompt_ready_chat_data/' + user + '_parallel_data_mistral_medium.csv'
+    
+    df_mistral = pd.read_csv(user_data_file_name)
+    possible_rows = list(range(df_mistral.shape[0]))
+    random.shuffle(possible_rows)
+    five_shots = possible_rows[:5]
+
+    return df_mistral.iloc[five_shots] 
+             
+        
+            
 
 def get_refinement_feedback(prompts_dict, input_data, output_name, loop_id):
     
@@ -232,6 +248,7 @@ def get_refinement_feedback(prompts_dict, input_data, output_name, loop_id):
        
     query = format_refinement_feedback_prompt(prompts_dict, input_data, loop_id)
     print('Refinement Feedback Prompt Query: ',query,' \n')
+
     messages = [ChatMessage(role="user", content=query)]
     # No streaming
     chat_response = mistral_client.chat(
@@ -240,6 +257,7 @@ def get_refinement_feedback(prompts_dict, input_data, output_name, loop_id):
     )
     response = chat_response.choices[0].message.content
     print('Refinement Feedback Prompt Response: ',response,' \n')
+
     output = pd.DataFrame(input_data).T
     output['tst_sentence_' + str(loop_id + 1)] = ['NaN']
     output['explanation_tst_feedback_'  + str(loop_id)] = [response]

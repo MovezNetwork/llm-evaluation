@@ -3,7 +3,6 @@ import ipywidgets as widgets
 from IPython.display import display, HTML
 
 def get_input_data():
-    output_evaluation_folder_path = 'f8_llm_evaluation_data/'
     output_processed_evaluation_folder_path = 'f9_processed_llm_evaluation_data/'
     mistral_noContext = pd.read_csv(output_processed_evaluation_folder_path + 'Evaluation_NoContext_mistral-medium_corrected.csv')
     mistral_context = pd.read_csv(output_processed_evaluation_folder_path + 'Evaluation_Context_mistral-medium_corrected.csv')
@@ -34,13 +33,13 @@ def get_input_data():
 
 def display_interactive_dataframe(df,col_display):
     # Create dropdown widgets for each column you want to filter on
-    user_dropdown = widgets.Dropdown(options=['All'] + df['user'].unique().tolist(), value = df['user'].unique().tolist()[0], description='User:')
-    promptID_dropdown = widgets.Dropdown(options=['All'] + df['promptID'].unique().tolist(), value = df['promptID'].unique().tolist()[0],description='Prompt ID:')
-    model_dropdown = widgets.Dropdown(options=['All'] + df['model'].unique().tolist(), value = df['model'].unique().tolist()[0], description='Model:')
-    shots_dropdown = widgets.Dropdown(options=['All'] + df['shots'].unique().tolist(), value = df['shots'].unique().tolist()[0], description='Shots:')
-    isParallel_dropdown = widgets.Dropdown(options=['All', True, False], value = True, description='Is Parallel:')
-    prompting_dropdown = widgets.Dropdown(options=['All'] + df['prompting'].unique().tolist(), value = df['prompting'].unique().tolist()[0], description='Prompting:')
-    evaluator_dropdown = widgets.Dropdown(options=['All'] + df['evaluator'].unique().tolist(), value = df['evaluator'].unique().tolist()[0], description='Evaluator:')
+    user_dropdown = widgets.Dropdown(options=['All'] + df['user'].unique().tolist(), value = 'All', description='User:')
+    promptID_dropdown = widgets.Dropdown(options=['All'] + df['promptID'].unique().tolist(), value = 'All',description='Prompt ID:')
+    model_dropdown = widgets.Dropdown(options=['All'] + df['model'].unique().tolist(), value = 'All', description='Model:')
+    shots_dropdown = widgets.Dropdown(options=['All'] + df['shots'].unique().tolist(), value = 'All', description='Shots:')
+    isParallel_dropdown = widgets.Dropdown(options=['All', True, False], value = 'All', description='Is Parallel:')
+    prompting_dropdown = widgets.Dropdown(options=['All'] + df['prompting'].unique().tolist(), value = 'All', description='Prompting:')
+    evaluator_dropdown = widgets.Dropdown(options=['All'] + df['evaluator'].unique().tolist(), value = 'All', description='Evaluator:')
     score_dropdown = widgets.Dropdown(options=['None', 'Accuracy', 'Content_Preservation', 'Fluency'], description='Score:')
 
     # Create function to update displayed data based on dropdown selections

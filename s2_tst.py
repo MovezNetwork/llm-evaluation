@@ -68,18 +68,24 @@ def extract_info(row):
             'explanation': []
         })
         
-def prompting_mistral(prompt_id,x_shots,mistral_m,input_sentences,save_online,parallel_data,context):
+def prompting_mistral(prompt_id,x_shots,mistral_m,save_online,parallel_data,context):
     config = configparser.ConfigParser()
     # Read the configuration file & paths
     config.read('config.ini')
     api_key_mistral = config.get('credentials', 'api_key_mistral')
     surfdrive_url_prompts = config.get('credentials', 'surfdrive_url_prompts')
+    surfdrive_url_input_sentences = config.get('credentials', 'surfdrive_url_input_sentences')
+
     output_llm_folder_path = 'f6_llm_tst_data/'
     output_shots_data = 'f4_shots_data/'
     output_context = 'f3_context_data/'    
     
     # reading prompt template components - depends on prompt_id
     df_prompts = pd.read_csv(surfdrive_url_prompts,sep=';').reset_index()
+
+    input_sentences = pd.read_csv(surfdrive_url_input_sentences,sep=';')['sentences']
+    input_sentences = input_sentences[0:10]
+    
     
     mistral_prompt_system_content = df_prompts['prompt_system_content'].iloc[prompt_id]
     mistral_prompt_x_shot_template = df_prompts['prompt_x_shot_template'].iloc[prompt_id]
@@ -184,6 +190,8 @@ def prompting_gpt(prompt_id,x_shots,gpt_m,input_sentences,save_online,parallel_d
     config.read('config.ini')
     api_key_gpt = config.get('credentials', 'api_key_openai')
     surfdrive_url_prompts = config.get('credentials', 'surfdrive_url_prompts')
+    surfdrive_url_input_sentences = config.get('credentials', 'surfdrive_url_input_sentences')
+
     output_llm_folder_path = 'f6_llm_tst_data/'
     output_shots_data = 'f4_shots_data/'
     output_context = 'f3_context_data/'
@@ -191,6 +199,8 @@ def prompting_gpt(prompt_id,x_shots,gpt_m,input_sentences,save_online,parallel_d
     
     # reading prompt template components - depends on prompt_id
     df_prompts = pd.read_csv(surfdrive_url_prompts,sep=';').reset_index()
+    input_sentences = pd.read_csv(surfdrive_url_input_sentences,sep=';')['sentences']
+    input_sentences = input_sentences[0:10]
     
     gpt_prompt_system_content = df_prompts['prompt_system_content'].iloc[prompt_id]
     gpt_prompt_x_shot_template = df_prompts['prompt_x_shot_template'].iloc[prompt_id]
