@@ -191,6 +191,8 @@ def llm_evl(df):
             )
             eval_timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
             eval_output.append({
+                'username': row_sentences['username'],
+                'id_neutral_sentence': row_sentences['id_neutral_sentence'],
                 'tst_id': row_sentences['tst_id'],
                 'tst_sentence': sentence,
                 'eval_id': row_sentences['username'] + eval_timestamp,
@@ -207,7 +209,9 @@ def llm_evl(df):
 
 
     df_eval_output = pd.DataFrame(eval_output)
-    df_eval_output.to_csv(output_llm_eval_folder_path + 'eval_' + eval_timestamp + '.csv', index=False)
+    smallest_timestamp = str(df_eval_output['eval_timestamp'].min())
+
+    df_eval_output.to_csv(output_llm_eval_folder_path + 'eval_' + smallest_timestamp + '.csv', index=False)
 
     return df_eval_output
 
@@ -215,7 +219,8 @@ def llm_evl(df):
 def postprocess_llm_evl(df):
     # create empty list to store all evaluation data
     eval_output_list = []
-    
+    output_llm_eval_folder_path = 'f8_llm_evaluation_data/'
+
     grouped_data = df.groupby('tst_id')
     for tst_id, group in grouped_data:
         # for each tst_id, create a new row  in the df_all_eval dataframe
@@ -226,49 +231,62 @@ def postprocess_llm_evl(df):
         }
 
         
-        for _, row_eval in group.iterrows():
+        for index, row_eval in group.iterrows():
             # append the eval_pID to the new row
             eval_pID = row_eval['eval_promptID']
-            eval_output['eval_promptID'] = eval_pID
+
 
             if(eval_pID == 4):
                 try:
                     eval_output['eval_score_fluency'] = re.findall(r'\d+', row_eval['llm_eval'].split('xplanation')[0])[0]
+                    eval_output['timestamp_score_fluency'] = row_eval['eval_timestamp']
                 except:
                     eval_output['eval_score_fluency'] = None
-                    print(row_eval['llm_eval'])
+                    eval_output['timestamp_score_fluency'] = None
+                    print('Exception at index:', index,' \n with value:', row_eval['llm_eval'])
 
                 try:
                     eval_output['eval_score_comprehensibility'] = re.findall(r'\d+', row_eval['llm_eval'].split('xplanation')[0])[1]
+                    eval_output['timestamp_score_comprehensibility'] = row_eval['eval_timestamp']
                 except:
                     eval_output['eval_score_comprehensibility'] = None
-                    print(row_eval['llm_eval'])
+                    eval_output['timestamp_score_comprehensibility'] = None
+                    print('Exception at index:', index,' \n with value:', row_eval['llm_eval'])
 
                 try:
                     eval_output['eval_explanation_fluency_comprehensibility'] = row_eval['llm_eval'].split('xplanation=')[1]
                 except:
                     eval_output['eval_explanation_fluency_comprehensibility'] = None
-                    print(row_eval['llm_eval'])
+                    print('Exception at index:', index,' \n with value:', row_eval['llm_eval'])
 
             else:
                 eval_label = get_eval_label(eval_pID)
                 try:
                     eval_output['eval_score_' + eval_label] = re.findall(r'\d+', row_eval['llm_eval'].split('xplanation')[0])[0]
+                    eval_output['timestamp_score_' + eval_label] = row_eval['eval_timestamp']
                 except:
                     eval_output['eval_score_' + eval_label] = None
-                    print(row_eval['llm_eval'])
+                    eval_output['timestamp_score_' + eval_label] = None
+                    print('Exception at index:', index,' \n with value:', row_eval['llm_eval'])
                 
                 try:
                     eval_output['eval_explanation_' + eval_label] = row_eval['llm_eval'].split('xplanation=')[1]
+                    eval_output['timestamp_score_' + eval_label] = row_eval['eval_timestamp']
+
                 except:
                     eval_output['eval_explanation_' + eval_label] = None
-                    print(row_eval['llm_eval'])
+                    eval_output['timestamp_score_' + eval_label] = None
+                    print('Exception at index:', index,' \n with value:', row_eval['llm_eval'])
         
         # append the new row with the evaluation scores to the eval_output_list
         eval_output_list.append(eval_output)
 
 
     df_eval_output = pd.DataFrame(eval_output_list)
+
+    smallest_timestamp = str(df['eval_timestamp'].min())
+
+    df_eval_output.to_csv(output_llm_eval_folder_path + 'postprocess_eval_' + smallest_timestamp + '.csv', index=False)
 
 
     return df_eval_output
