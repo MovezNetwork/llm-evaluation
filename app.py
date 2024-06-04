@@ -454,7 +454,6 @@ def main():
             
     # Evaluation tab
     with tab2:
-        st.title('LLM Evaluation Output')
         st.subheader("LLM Evaluation Runs")
         df_eval = pd.read_csv('f8_llm_evaluation_data/postprocess_eval_20240520173219.csv')
         

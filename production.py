@@ -6,7 +6,11 @@ from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 import datetime
 import re
+import os
+from tqdm import tqdm
 
+
+# Data preparation methods
 def read_input_data():
     # Reading the 5 shots data
     output_shots_data = 'f4_shots_data/'
@@ -35,6 +39,7 @@ def read_input_data():
 
     return df_all_shots,input_sentences
 
+# TST methods
 def llm_tst(df_user_data, neutral_sentences):
     
     df_mistral_output_all = pd.DataFrame()
@@ -50,9 +55,16 @@ def llm_tst(df_user_data, neutral_sentences):
     prompt_id = 2
     mistral_m = 'mistral-small'
 
-    output_llm_folder_path = 'f6_llm_tst_data/'
+    
+    # create a new folder programmically, with name being a current timestamp in the format YYYYMMDDHHMMSS
+    
+    output_run = 'run_' + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    output_llm_folder_path = 'f6_llm_tst_data/' + output_run + '/'
 
-  
+    # create the folder if it does not exist
+    if not os.path.exists(output_llm_folder_path):
+        os.makedirs(output_llm_folder_path)
+
     
     # reading prompt template components - depends on prompt_id
     df_prompts = pd.read_csv(surfdrive_url_prompts,sep=';').reset_index()
@@ -64,7 +76,7 @@ def llm_tst(df_user_data, neutral_sentences):
 
     # For each user, generate the prompt and query Mistral API
     grouped_data = df_user_data.groupby('username')
-    for username, group in grouped_data:
+    for username, group in tqdm(grouped_data,total=df_user_data['username'].nunique(),desc = "Processing users"):
         x_shots_list = []
         messages_id = []
         for _, row in group.iterrows():
@@ -79,6 +91,9 @@ def llm_tst(df_user_data, neutral_sentences):
             # Query Mistral API
         mistral_client = MistralClient(api_key = api_key_mistral)
         # For each sentence, query Mistral API by looping over the neutral_sentences dataframe
+        # use tqdm to show progress bar for the loop
+    
+
         for i, sentence in neutral_sentences.iterrows():
             final_output = []
             neutral_sentence = sentence['sentences']
@@ -103,53 +118,42 @@ def llm_tst(df_user_data, neutral_sentences):
                 "completion_tokens": chat_response.usage.completion_tokens,
                 "object": chat_response.object,
                 "promptID": prompt_id,
-                "timestamp": timestamp
+                "timestamp": timestamp,
+                "output_run": output_run
             })
             # final_output list to csv file
 
             df_mistral_output = pd.DataFrame(final_output)
             # Datetime information represented as string as a timestamp
             
-            df_mistral_output.to_csv(output_llm_folder_path + "sentence_" + sentence['idSentence'] + "_user_" + username + "_t_" + timestamp + '.csv', index=False)
+            df_mistral_output.to_csv(output_llm_folder_path + "s_" + sentence['idSentence'] + "_u_" + username + "_t_" + timestamp + '.csv', index=False)
     
             df_mistral_output_all = pd.concat([df_mistral_output_all, df_mistral_output], ignore_index=True)
+    
+    #try to execute this method, if it fails return df_mistral_output_all
+    try:
+        df_postprocess = postprocess_llm_tst(df_mistral_output_all, output_run)
+    except:
+        print('Postprocessing failed, returning the raw data. Please run the postprocessing method manually.')
+        return df_mistral_output_all
 
-    return df_mistral_output_all
+
+    return df_postprocess
 
 
-def postprocess_llm_tst(df):
-    # Find only the csv files with format sentence_{idSentence}_user_{username}_t_{timestamp}.csv
-    # output_llm_folder_path = 'f6_llm_tst_data/'
-    # csv_files = glob.glob(output_llm_folder_path + 'sentence_*_user_*_t_*.csv')
-
-    # df = pd.DataFrame()
-    # for file in csv_files:
-    #     df_temp = pd.read_csv(file)
-    #     df = pd.concat([df, df_temp], ignore_index=True)
+def postprocess_llm_tst(df,output_run):
 
     df['tst_sentence'] = df['llm_tst'].apply(lambda x: extract_tst(x)[0])
-    # df['tst_sentence_id'] = 
     df['explanation'] = df['llm_tst'].apply(lambda x: extract_tst(x)[1])
+
+    df = df[['username','id_neutral_sentence','neutral_sentence','tst_id','tst_sentence','explanation','llm_tst','query','model','prompt_tokens','completion_tokens','object','promptID','timestamp','output_run']]
     
-    df = df[['username','id_neutral_sentence','neutral_sentence','tst_id','tst_sentence','explanation','llm_tst','query','model','prompt_tokens','completion_tokens','object','promptID','timestamp']]
+    output_llm_folder_path = 'f6_llm_tst_data/' + output_run + '/'
+
+    df.to_csv(output_llm_folder_path + output_run + '_tst_postprocess.csv', index=False)
+
     return df
 
-def read_and_postprocess_llm_tst():
-    # Find only the csv files with format sentence_{idSentence}_user_{username}_t_{timestamp}.csv
-    output_llm_folder_path = 'f6_llm_tst_data/'
-    csv_files = glob.glob(output_llm_folder_path + 'sentence_*_user_*_t_*.csv')
-
-    df = pd.DataFrame()
-    for file in csv_files:
-        df_temp = pd.read_csv(file)
-        df = pd.concat([df, df_temp], ignore_index=True)
-
-    df['tst_sentence'] = df['llm_tst'].apply(lambda x: extract_tst(x)[0])
-    # df['tst_sentence_id'] = 
-    df['explanation'] = df['llm_tst'].apply(lambda x: extract_tst(x)[1])
-    
-    df = df[['username','id_neutral_sentence','neutral_sentence','tst_id','tst_sentence','explanation','llm_tst','query','model','prompt_tokens','completion_tokens','object','promptID','timestamp']]
-    return df
 
 def extract_tst(text):
 
@@ -158,15 +162,16 @@ def extract_tst(text):
 
     return tst_sentence, explanation
 
+
+# Evaluation methods
 def llm_evl(df):
     config = configparser.ConfigParser()
     config.read('config.ini')
 
     api_key_mistral = config.get('credentials', 'api_key_mistral')
     mistral_client = MistralClient(api_key=api_key_mistral)
-    mistral_m = "mistral-small"
 
-    output_llm_eval_folder_path = 'f8_llm_evaluation_data/'
+    mistral_m = "mistral-small"
 
     surfdrive_url_evaluation_prompts = config.get('credentials', 'surfdrive_url_evaluation_prompts')
     df_eval_prompts = pd.read_csv(surfdrive_url_evaluation_prompts, sep = ';', on_bad_lines='skip').reset_index()
@@ -174,7 +179,7 @@ def llm_evl(df):
     # saving eval outcomes to temp list, to be appended to the final dataframe
     eval_output = []
 
-    for _, row_sentences in df.iterrows():
+    for _, row_sentences in tqdm(df.iterrows(),total=df.shape[0],desc = "Processing sentences"):
         # take the sentence from the corpus
         sentence = row_sentences['tst_sentence']
 
@@ -203,23 +208,45 @@ def llm_evl(df):
                 "completion_tokens": chat_response.usage.completion_tokens,
                 "object": chat_response.object,
                 "eval_promptID":  row_eval['eval_promptID'],
-                "eval_timestamp": eval_timestamp
+                "eval_timestamp": eval_timestamp,
+                "output_run": row_sentences['output_run']
             })
             
 
 
     df_eval_output = pd.DataFrame(eval_output)
-    smallest_timestamp = str(df_eval_output['eval_timestamp'].min())
 
-    df_eval_output.to_csv(output_llm_eval_folder_path + 'eval_' + smallest_timestamp + '.csv', index=False)
+    try:
+        output_run = df_eval_output['output_run'].iloc[0]
+    except:
+        print('evaluation error')
+        output_run = str(df['eval_timestamp'].min())
 
-    return df_eval_output
+    output_llm_eval_folder_path = 'f8_llm_evaluation_data/' + output_run + '/'
+    
+
+    # create the folder if it does not exist
+    if not os.path.exists(output_llm_eval_folder_path):
+        os.makedirs(output_llm_eval_folder_path)
+
+    df_eval_output.to_csv(output_llm_eval_folder_path + 'eval_' + output_run + '.csv', index=False)
+   
+    #try to execute this method, if it fails return df_mistral_output_all
+    try:
+        df_postprocess = postprocess_llm_evl(df_eval_output,output_run)
+    except:
+        print('Evaluation postprocessing failed, returning the raw data. Please run the evaluation postprocessing method manually.')
+        return df_eval_output
+    
 
 
-def postprocess_llm_evl(df):
+    return df_postprocess
+
+
+def postprocess_llm_evl(df,output_run):
     # create empty list to store all evaluation data
     eval_output_list = []
-    output_llm_eval_folder_path = 'f8_llm_evaluation_data/'
+    output_llm_eval_folder_path = 'f8_llm_evaluation_data/' + output_run + '/'
 
     grouped_data = df.groupby('tst_id')
     for tst_id, group in grouped_data:
@@ -227,7 +254,8 @@ def postprocess_llm_evl(df):
         # first, store the tst_id in the new row    
         eval_output = {
             'tst_id': tst_id,
-            'tst_sentence': group['tst_sentence'].iloc[0]
+            'tst_sentence': group['tst_sentence'].iloc[0],
+            
         }
 
         
@@ -277,6 +305,8 @@ def postprocess_llm_evl(df):
                     eval_output['eval_explanation_' + eval_label] = None
                     eval_output['timestamp_score_' + eval_label] = None
                     print('Exception at index:', index,' \n with value:', row_eval['llm_eval'])
+            
+        eval_output['output_run'] = output_run
         
         # append the new row with the evaluation scores to the eval_output_list
         eval_output_list.append(eval_output)
@@ -284,9 +314,7 @@ def postprocess_llm_evl(df):
 
     df_eval_output = pd.DataFrame(eval_output_list)
 
-    smallest_timestamp = str(df['eval_timestamp'].min())
-
-    df_eval_output.to_csv(output_llm_eval_folder_path + 'postprocess_eval_' + smallest_timestamp + '.csv', index=False)
+    df_eval_output.to_csv(output_llm_eval_folder_path + 'postprocess_eval_' + output_run + '.csv', index=False)
 
 
     return df_eval_output
