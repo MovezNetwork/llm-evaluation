@@ -401,7 +401,7 @@ def main():
 
                 st.divider()
 
-    tab1, tab2 = st.tabs(["LLM Test Style Transfer", "LLM Evaluation"])
+    tab1, tab2, tab3 = st.tabs(["LLM Test Style Transfer", "LLM Evaluation", "New Runs"])
 
     def subdataframe_scores(df_eval,username_eval,sentence_id_eval):
         if username_eval and sentence_id_eval:
@@ -420,114 +420,127 @@ def main():
     # TST tab
     with tab1:
         st.subheader("LLM TST Mistral Runs")
-
-        if st.button('Run new TST'):  # Returns True if the user clicks the button
-            st.write('Running Text Style Transfer...')
-            df_user_data,neutral_sentences = p.read_input_data()
-            df_llm_tst = p.llm_tst(df_user_data,neutral_sentences[0:2])
-            df_llm_tst_final = p.postprocess_llm_tst(df_llm_tst)
-
-        df_llm_tst_final = p.read_and_postprocess_llm_tst()
-        smallest_timestamp = datetime.strptime(str(df_llm_tst_final['timestamp'].min()), "%Y%m%d%H%M%S").strftime("%B %d %H:%M:%S")
-        largest_timestamp = datetime.strptime(str(df_llm_tst_final['timestamp'].max()), "%Y%m%d%H%M%S").strftime("%B %d %H:%M:%S")
-        st.write('Showing LLM TST Output generated between ' + smallest_timestamp + ' and ' + largest_timestamp)
+        # list all folders that starts with 'run_' found under f6_llm_tst_data directory
+        folders = [name for name in os.listdir('f6_llm_tst_data') if os.path.isdir(os.path.join('f6_llm_tst_data', name)) and name.startswith('run_')]
+        run_selection_llm_tst = st.selectbox("Select a llm tst run to display",folders,index=None, placeholder="Select LLM Run...")
+        if run_selection_llm_tst:
+            df_llm_tst_final = pd.read_csv('f6_llm_tst_data/'+ run_selection_llm_tst + '/'+ run_selection_llm_tst + '_tst_postprocess.csv')
+            smallest_timestamp = datetime.strptime(str(df_llm_tst_final['timestamp'].min()), "%Y%m%d%H%M%S").strftime("%B %d %H:%M:%S")
+            largest_timestamp = datetime.strptime(str(df_llm_tst_final['timestamp'].max()), "%Y%m%d%H%M%S").strftime("%B %d %H:%M:%S")
+            st.write('Showing LLM TST Output generated between ' + smallest_timestamp + ' and ' + largest_timestamp)
         
-        username = st.selectbox('User Selection', df_llm_tst_final['username'].unique(),index=None, placeholder="Select user...",)
-        sentence_id = st.selectbox('Sentence Selection', df_llm_tst_final['id_neutral_sentence'].unique(),index=None, placeholder="Select sentence ID...",)
-        
-        if username and sentence_id:
-            df_case1 = df_llm_tst_final[(df_llm_tst_final['username'] == username) & (df_llm_tst_final['id_neutral_sentence'] == sentence_id)]
-            dataframe_with_selections_tst(df_case1)
-            st.write('im in case 1')
-        elif username and not sentence_id:
-            df_case2 = df_llm_tst_final[(df_llm_tst_final['username'] == username)]
-            dataframe_with_selections_tst(df_case2)
-            st.write('im in case 2')
-        elif not username and (sentence_id or sentence_id == 0):
-            df_case3 = df_llm_tst_final[(df_llm_tst_final['id_neutral_sentence'] == sentence_id)]
-            dataframe_with_selections_tst(df_case3)
-            st.write('im in case 3')
+            username = st.selectbox('User Selection', df_llm_tst_final['username'].unique(),index=None, placeholder="Select user...",)
+            sentence_id = st.selectbox('Sentence Selection', df_llm_tst_final['id_neutral_sentence'].unique(),index=None, placeholder="Select sentence ID...",)
+            
+            if username and sentence_id:
+                df_case1 = df_llm_tst_final[(df_llm_tst_final['username'] == username) & (df_llm_tst_final['id_neutral_sentence'] == sentence_id)]
+                dataframe_with_selections_tst(df_case1)
+            elif username and not sentence_id:
+                df_case2 = df_llm_tst_final[(df_llm_tst_final['username'] == username)]
+                dataframe_with_selections_tst(df_case2)
+            elif not username and (sentence_id or sentence_id == 0):
+                df_case3 = df_llm_tst_final[(df_llm_tst_final['id_neutral_sentence'] == sentence_id)]
+                dataframe_with_selections_tst(df_case3)
+            else:
+                df_case4 = df_llm_tst_final 
+                dataframe_with_selections_tst(df_case4)
         else:
-            df_case4 = df_llm_tst_final 
-            dataframe_with_selections_tst(df_case4)
-            st.write('im in case 4')
+            st.write('No data to display')
             
     # Evaluation tab
     with tab2:
         st.subheader("LLM Evaluation Runs")
-        df_eval = pd.read_csv('f8_llm_evaluation_data/postprocess_eval_20240520173219.csv')
-        
-        df_llm_tst_final = p.read_and_postprocess_llm_tst()
-
-        # THIS MERGE WONT BE NEEDED ONCE A NEW EVALUATION FILE IS GENERATED - this has been updated 
-        # merge df_eval with df_llm_tst_final on tst_id, obtain all the columns from df_eval and add the username and id_neutral_sentence columns from df_llm_tst_final
-        df_eval = pd.merge(df_eval, df_llm_tst_final[['tst_id','username','id_neutral_sentence']], on='tst_id', how='left')
-        #the last two columns of df_eval should be added as the second and third columns of df_eval
-        df_eval = df_eval[['tst_id','username','id_neutral_sentence'] + [col for col in df_eval.columns if col not in ['tst_id','username','id_neutral_sentence']]]
-
-        username_eval = st.selectbox('User Selection ', df_eval['username'].unique(),index=None, placeholder="Select user...",)
-        sentence_id_eval = st.selectbox('Sentence Selection ', df_eval['id_neutral_sentence'].unique(),index=None, placeholder="Select sentence ID...",)
-        scores = ['Formality', 'Descriptiveness', 'Emotionality', 'Sentiment', 'Fluency','Comprehensibility']
-        eval_scores  = st.selectbox('Eval Metrics Selection ', scores,index=None, placeholder="Select evaluation metrics...",)
-
-        df_eval_sub = pd.DataFrame()
-
-        if eval_scores:
-
-                
-            if eval_scores == 'Formality':
-                df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_formality','eval_explanation_formality']]
-                df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
-                dataframe_with_score(df_eval_sub,'formality')
-                st.dataframe(df_eval_sub)               
-
-            elif eval_scores == 'Descriptiveness':
-                df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_descriptiveness','eval_explanation_descriptiveness']]
-                df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
-                dataframe_with_score(df_eval_sub,'descriptiveness')
-                st.dataframe(df_eval_sub)               
-
-            elif eval_scores == 'Emotionality':
-                df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_emotionality','eval_explanation_emotionality']]
-                df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
-                dataframe_with_score(df_eval_sub,'emotionality')
-                st.dataframe(df_eval_sub)               
-  
-            elif eval_scores == 'Sentiment':
-                df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_sentiment','eval_explanation_sentiment']]
-                df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
-                dataframe_with_score(df_eval_sub,'sentiment')
-                st.dataframe(df_eval_sub)               
-
-            elif eval_scores == 'Fluency':
-                df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_fluency','eval_explanation_fluency_comprehensibility']]
-                df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
-                dataframe_with_score(df_eval_sub,'fluency')
-                st.dataframe(df_eval_sub)               
-
-            elif eval_scores == 'Comprehensibility':
-                df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_comprehensibility','eval_explanation_fluency_comprehensibility']]
-                df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
-                dataframe_with_score(df_eval_sub,'comprehensibility')
-                st.dataframe(df_eval_sub)               
-
-
-        if df_eval_sub.empty:
-            if username_eval and sentence_id_eval:
-                df_case1 = df_eval[(df_eval['username'] == username_eval) & (df_eval['id_neutral_sentence'] == sentence_id_eval)]
-                dataframe_with_selections_eval(df_case1)
-                # st.write('im in case 1')
-            elif username_eval and not sentence_id_eval:
-                df_case2 = df_eval[(df_eval['username'] == username_eval)]
-                dataframe_with_selections_eval(df_case2)
-                # st.write('im in case 2')
-            elif not username_eval and (sentence_id_eval or sentence_id_eval == 0):
-                df_case3 = df_eval[(df_eval['id_neutral_sentence'] == sentence_id_eval)]
-                dataframe_with_selections_eval(df_case3)
-                # st.write('im in case 3')
+        folders = [name for name in os.listdir('f6_llm_tst_data') if os.path.isdir(os.path.join('f6_llm_tst_data', name)) and name.startswith('run_')]
+        run_selection_llm_eval = st.selectbox("Select a llm eval run to display",folders,index=None, placeholder="Select LLM Run...")
+        if run_selection_llm_eval or run_selection_llm_tst:
+            display_run = ''
+            if run_selection_llm_tst:
+                display_run = run_selection_llm_tst
             else:
-                df_case4 = df_eval 
-                dataframe_with_selections_eval(df_case4)
+                display_run = run_selection_llm_eval
+
+            df_eval = pd.read_csv('f8_llm_evaluation_data/'+ display_run + '/postprocess_eval_'+ display_run + '.csv')
+  
+
+            username_eval = st.selectbox('User Selection ', df_eval['username'].unique(),index=None, placeholder="Select user...",)
+            sentence_id_eval = st.selectbox('Sentence Selection ', df_eval['id_neutral_sentence'].unique(),index=None, placeholder="Select sentence ID...",)
+            scores = ['Formality', 'Descriptiveness', 'Emotionality', 'Sentiment', 'Fluency','Comprehensibility']
+            eval_scores  = st.selectbox('Eval Metrics Selection ', scores,index=None, placeholder="Select evaluation metrics...",)
+
+            df_eval_sub = pd.DataFrame()
+
+            if eval_scores:
+
+                    
+                if eval_scores == 'Formality':
+                    df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_formality','eval_explanation_formality']]
+                    df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
+                    dataframe_with_score(df_eval_sub,'formality')
+                    st.dataframe(df_eval_sub)               
+
+                elif eval_scores == 'Descriptiveness':
+                    df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_descriptiveness','eval_explanation_descriptiveness']]
+                    df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
+                    dataframe_with_score(df_eval_sub,'descriptiveness')
+                    st.dataframe(df_eval_sub)               
+
+                elif eval_scores == 'Emotionality':
+                    df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_emotionality','eval_explanation_emotionality']]
+                    df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
+                    dataframe_with_score(df_eval_sub,'emotionality')
+                    st.dataframe(df_eval_sub)               
+    
+                elif eval_scores == 'Sentiment':
+                    df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_sentiment','eval_explanation_sentiment']]
+                    df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
+                    dataframe_with_score(df_eval_sub,'sentiment')
+                    st.dataframe(df_eval_sub)               
+
+                elif eval_scores == 'Fluency':
+                    df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_fluency','eval_explanation_fluency_comprehensibility']]
+                    df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
+                    dataframe_with_score(df_eval_sub,'fluency')
+                    st.dataframe(df_eval_sub)               
+
+                elif eval_scores == 'Comprehensibility':
+                    df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_comprehensibility','eval_explanation_fluency_comprehensibility']]
+                    df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
+                    dataframe_with_score(df_eval_sub,'comprehensibility')
+                    st.dataframe(df_eval_sub)               
+
+
+            if df_eval_sub.empty:
+                if username_eval and sentence_id_eval:
+                    df_case1 = df_eval[(df_eval['username'] == username_eval) & (df_eval['id_neutral_sentence'] == sentence_id_eval)]
+                    dataframe_with_selections_eval(df_case1)
+                    # st.write('im in case 1')
+                elif username_eval and not sentence_id_eval:
+                    df_case2 = df_eval[(df_eval['username'] == username_eval)]
+                    dataframe_with_selections_eval(df_case2)
+                    # st.write('im in case 2')
+                elif not username_eval and (sentence_id_eval or sentence_id_eval == 0):
+                    df_case3 = df_eval[(df_eval['id_neutral_sentence'] == sentence_id_eval)]
+                    dataframe_with_selections_eval(df_case3)
+                    # st.write('im in case 3')
+                else:
+                    df_case4 = df_eval 
+                    dataframe_with_selections_eval(df_case4)
+
+        else:
+            st.write('No data to display')
+
+
+    # New Runs tab
+    with tab3:
+        st.subheader("New LLM Run")
+        if st.button('Start New LLM Run'):  # Returns True if the user clicks the button
+            st.write('Running LLM Text Style Transfer & Evaluation...')
+            df_user_data,neutral_sentences = p.read_input_data()
+            df_llm_tst = p.llm_tst(df_user_data,neutral_sentences[0:2])
+            df_eval = p.llm_evl(df_llm_tst)
+            st.write('New LLM RUN Generated with run_id: ', df_llm_tst['output_run'].unique()[0])
+
+
 
 
 

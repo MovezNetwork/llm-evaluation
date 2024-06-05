@@ -7,7 +7,7 @@ from mistralai.models.chat_completion import ChatMessage
 import datetime
 import re
 import os
-from tqdm import tqdm
+from stqdm import stqdm
 
 
 # Data preparation methods
@@ -76,7 +76,7 @@ def llm_tst(df_user_data, neutral_sentences):
 
     # For each user, generate the prompt and query Mistral API
     grouped_data = df_user_data.groupby('username')
-    for username, group in tqdm(grouped_data,total=df_user_data['username'].nunique(),desc = "Processing users"):
+    for username, group in stqdm(grouped_data,total=df_user_data['username'].nunique(),desc = "Generating LLM TST Sentences per User "):
         x_shots_list = []
         messages_id = []
         for _, row in group.iterrows():
@@ -179,7 +179,7 @@ def llm_evl(df):
     # saving eval outcomes to temp list, to be appended to the final dataframe
     eval_output = []
 
-    for _, row_sentences in tqdm(df.iterrows(),total=df.shape[0],desc = "Processing sentences"):
+    for _, row_sentences in stqdm(df.iterrows(),total=df.shape[0],desc = "Evaluating TST sentences"):
         # take the sentence from the corpus
         sentence = row_sentences['tst_sentence']
 
@@ -255,7 +255,8 @@ def postprocess_llm_evl(df,output_run):
         eval_output = {
             'tst_id': tst_id,
             'tst_sentence': group['tst_sentence'].iloc[0],
-            
+            'username': group['username'].iloc[0],
+            'id_neutral_sentence': group['id_neutral_sentence'].iloc[0]
         }
 
         
