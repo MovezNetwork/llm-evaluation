@@ -8,6 +8,7 @@ import datetime
 import re
 import os
 from stqdm import stqdm
+from tqdm import tqdm
 
 
 # Data preparation methods
@@ -34,10 +35,13 @@ def read_input_data():
     df_all_shots = df_all_shots.sort_values(by='username')
 
     surfdrive_url_input_sentences = config.get('credentials', 'surfdrive_url_input_sentences')
-    input_sentences = pd.read_csv(surfdrive_url_input_sentences,sep=';')[['idSentence','sentences']][0:10]
-    input_sentences
+    neutral_sentences = pd.read_csv(surfdrive_url_input_sentences,sep=';')[['idSentence','sentences']][0:10]
+    surfdrive_url_transcript_sentences = config.get('credentials', 'surfdrive_url_transcript_sentences')
+    user_sentences = pd.read_csv(surfdrive_url_transcript_sentences).reset_index()[['user', 'original', 'your_text']]
+    user_sentences = user_sentences.merge(neutral_sentences, left_on='original', right_on='sentences', how='left')
+    user_sentences = user_sentences.drop(columns=['sentences'])
 
-    return df_all_shots,input_sentences
+    return df_all_shots,neutral_sentences,user_sentences
 
 # TST methods
 def llm_tst(df_user_data, neutral_sentences):
@@ -76,7 +80,9 @@ def llm_tst(df_user_data, neutral_sentences):
 
     # For each user, generate the prompt and query Mistral API
     grouped_data = df_user_data.groupby('username')
-    for username, group in stqdm(grouped_data,total=df_user_data['username'].nunique(),desc = "Generating LLM TST Sentences per User "):
+    # for username, group in stqdm(grouped_data,total=df_user_data['username'].nunique(),desc = "Generating LLM TST Sentences per User "):
+    for username, group in grouped_data:
+
         x_shots_list = []
         messages_id = []
         for _, row in group.iterrows():
@@ -164,7 +170,7 @@ def extract_tst(text):
 
 
 # Evaluation methods
-def llm_evl(df):
+def llm_evl(df,user_sentences):
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -179,15 +185,27 @@ def llm_evl(df):
     # saving eval outcomes to temp list, to be appended to the final dataframe
     eval_output = []
 
-    for _, row_sentences in stqdm(df.iterrows(),total=df.shape[0],desc = "Evaluating TST sentences"):
+    for _, row_sentences in tqdm(df.iterrows(),total=df.shape[0],desc = "Evaluating TST sentences"):
+    # for _, row_sentences in df.iterrows():
+
         # take the sentence from the corpus
         sentence = row_sentences['tst_sentence']
 
         # evaluate the sentence on all evaluation metrics
         for _, row_eval in df_eval_prompts.iterrows():
-            
+            eval_promptID = int(row_eval['eval_promptID'])
+            user_s = user_sentences[(user_sentences.user == row_sentences['username']) & (user_sentences.idSentence ==  str(row_sentences['id_neutral_sentence']))]['your_text'].iloc[0]
+            prompt_system = row_eval['prompt_system']
+            prompt_main = row_eval['prompt_main']
+            prompt_inference = row_eval['prompt_inference']
+            # if eval_promptID in 1-4
+            if eval_promptID in range(0,5):
+                formatted_inference = prompt_inference.format(sentence)
+                eval_prompt = f"{prompt_system}{prompt_main}{formatted_inference}"
+            else:
+                formatted_inference = prompt_inference.format(user_s,sentence)
+                eval_prompt = f"{prompt_system}{prompt_main}{formatted_inference}"
 
-            eval_prompt = row_eval['prompt_system'] + row_eval['prompt_main'] + f"{row_eval['prompt_inference'].replace('{}', f'{{{sentence}}}')}"    
             query = [ChatMessage(role="user", content=eval_prompt)]
             # No streaming
             chat_response = mistral_client.chat(
@@ -200,6 +218,7 @@ def llm_evl(df):
                 'id_neutral_sentence': row_sentences['id_neutral_sentence'],
                 'tst_id': row_sentences['tst_id'],
                 'tst_sentence': sentence,
+                'user_sentence': user_s,
                 'eval_id': row_sentences['username'] + eval_timestamp,
                 'llm_eval': chat_response.choices[0].message.content,
                 "query": eval_prompt,
@@ -240,7 +259,7 @@ def llm_evl(df):
     
 
 
-    return df_postprocess
+    return df_postprocess,df_eval_output
 
 
 def postprocess_llm_evl(df,output_run):
@@ -256,7 +275,8 @@ def postprocess_llm_evl(df,output_run):
             'tst_id': tst_id,
             'tst_sentence': group['tst_sentence'].iloc[0],
             'username': group['username'].iloc[0],
-            'id_neutral_sentence': group['id_neutral_sentence'].iloc[0]
+            'id_neutral_sentence': group['id_neutral_sentence'].iloc[0],
+            'user_sentence': group['user_sentence'].iloc[0],
         }
 
         
@@ -326,7 +346,9 @@ def get_eval_label(int_label):
         0: "formality",
         1: "descriptiveness",
         2: "emotionality",
-        3: "sentiment"
+        3: "sentiment",
+        5: "topic_similarity",
+        6: "meaning_similarity"
     }
     return switcher.get(int_label, "Invalid label")
 

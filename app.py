@@ -321,6 +321,64 @@ def main():
                 """
                 st.markdown(explanation_html_code, unsafe_allow_html=True) 
 
+
+                score_topic = row['eval_score_topic_similarity']
+                st.subheader('Score Topic Similarity: ' + str(score_topic))
+                explanation_score_topic = row['eval_explanation_topic_similarity']
+                if not is_str_nan(explanation_score_topic):
+                    text_length_explanation = len(explanation_score_topic)
+                else:
+                    text_length_explanation = 5
+                height_explanation = max(100, (text_length_explanation // 20 + 1) * 12)       
+        
+                explanation_html_code = f"""
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: {sidebar_width}px;
+                    height: {height_explanation}px;
+                    border-radius: 15px;
+                    border: 1px solid black;
+                    background-color: lightgrey;
+                    margin: 0 auto;
+                ">
+                    <p style="font-size: 15px;  color: black;">
+                        {explanation_score_topic}
+                    </p>
+                </div>
+                """
+                st.markdown(explanation_html_code, unsafe_allow_html=True) 
+
+
+                score_meaning = row['eval_score_meaning_similarity']
+                st.subheader('Score Meaning Similarity: ' + str(score_meaning))
+                explanation_score_meaning = row['eval_explanation_meaning_similarity']
+                if not is_str_nan(explanation_score_meaning):
+                    text_length_explanation = len(explanation_score_meaning)
+                else:
+                    text_length_explanation = 5
+                height_explanation = max(100, (text_length_explanation // 20 + 1) * 12)       
+        
+                explanation_html_code = f"""
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: {sidebar_width}px;
+                    height: {height_explanation}px;
+                    border-radius: 15px;
+                    border: 1px solid black;
+                    background-color: lightgrey;
+                    margin: 0 auto;
+                ">
+                    <p style="font-size: 15px;  color: black;">
+                        {explanation_score_meaning}
+                    </p>
+                </div>
+                """
+                st.markdown(explanation_html_code, unsafe_allow_html=True) 
+
                 st.divider()
 
 
@@ -369,6 +427,33 @@ def main():
                 """
                 st.markdown(tst_sentence_html_code, unsafe_allow_html=True)
                 st.text("")
+
+                if(score == 'topic_similarity' or score == 'meaning_similarity'):
+                    #display the user sentence like the tst_sentence from above
+                    st.subheader('User Rewritten Sentence:')
+
+                    user_sentence = row['user_sentence']
+                    text_length_user_sentence = len(user_sentence)
+                    height_user_sentence = max(100, (text_length_user_sentence // 20 + 1) * 12)         
+                    user_sentence_html_code = f"""
+                    <div style="
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: {sidebar_width}px;
+                        height: {height_user_sentence}px;
+                        border-radius: 15px;
+                        border: 1px solid black;
+                        background-color: lightgrey;
+                        margin: 0 auto;
+                    ">
+                        <p style="font-size: 15px;  color: black;">
+                            {user_sentence}
+                        </p>
+                    </div>
+                    """
+                    st.markdown(user_sentence_html_code, unsafe_allow_html=True)
+                    st.text("")
 
                 score_metrics = row['eval_score_' + score]
                 st.subheader('Score ' + score + ': ' + str(score_metrics))
@@ -464,7 +549,7 @@ def main():
 
             username_eval = st.selectbox('User Selection ', df_eval['username'].unique(),index=None, placeholder="Select user...",)
             sentence_id_eval = st.selectbox('Sentence Selection ', df_eval['id_neutral_sentence'].unique(),index=None, placeholder="Select sentence ID...",)
-            scores = ['Formality', 'Descriptiveness', 'Emotionality', 'Sentiment', 'Fluency','Comprehensibility']
+            scores = ['Formality', 'Descriptiveness', 'Emotionality', 'Sentiment', 'Fluency','Comprehensibility', 'Topic Similarity', 'Meaning Similarity']
             eval_scores  = st.selectbox('Eval Metrics Selection ', scores,index=None, placeholder="Select evaluation metrics...",)
 
             df_eval_sub = pd.DataFrame()
@@ -506,6 +591,19 @@ def main():
                     df_eval_sub = df_eval[[ 'tst_id','username','id_neutral_sentence','tst_sentence','eval_score_comprehensibility','eval_explanation_fluency_comprehensibility']]
                     df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
                     dataframe_with_score(df_eval_sub,'comprehensibility')
+                    st.dataframe(df_eval_sub)     
+
+                
+                elif eval_scores == 'Topic Similarity':
+                    df_eval_sub = df_eval[[ 'tst_id','username','user_sentence','id_neutral_sentence','tst_sentence','eval_score_topic_similarity','eval_explanation_topic_similarity']]
+                    df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
+                    dataframe_with_score(df_eval_sub,'topic_similarity')
+                    st.dataframe(df_eval_sub) 
+
+                elif eval_scores == 'Meaning Similarity':
+                    df_eval_sub = df_eval[[ 'tst_id','username','user_sentence','id_neutral_sentence','tst_sentence','eval_score_meaning_similarity','eval_explanation_meaning_similarity']]
+                    df_eval_sub = subdataframe_scores(df_eval_sub,username_eval,sentence_id_eval)
+                    dataframe_with_score(df_eval_sub,'meaning_similarity')
                     st.dataframe(df_eval_sub)               
 
 
