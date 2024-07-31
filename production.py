@@ -266,6 +266,7 @@ def postprocess_llm_evl(df,output_run):
     # create empty list to store all evaluation data
     eval_output_list = []
     output_llm_eval_folder_path = 'f8_llm_evaluation_data/' + output_run + '/'
+    count_exceptions = 0
 
     grouped_data = df.groupby('tst_id')
     for tst_id, group in grouped_data:
@@ -293,6 +294,7 @@ def postprocess_llm_evl(df,output_run):
                     eval_output['eval_score_fluency'] = None
                     eval_output['timestamp_score_fluency'] = None
                     print('Exception at index:', index,' \n with value:', row_eval['llm_eval'])
+                    count_exceptions += 1
 
                 try:
                     eval_output['eval_score_comprehensibility'] = re.findall(r'\d+', row_eval['llm_eval'].split('xplanation')[0])[1]
@@ -301,12 +303,14 @@ def postprocess_llm_evl(df,output_run):
                     eval_output['eval_score_comprehensibility'] = None
                     eval_output['timestamp_score_comprehensibility'] = None
                     print('Exception at index:', index,' \n with value:', row_eval['llm_eval'])
+                    count_exceptions += 1
 
                 try:
                     eval_output['eval_explanation_fluency_comprehensibility'] = row_eval['llm_eval'].split('xplanation=')[1]
                 except:
                     eval_output['eval_explanation_fluency_comprehensibility'] = None
                     print('Exception at index:', index,' \n with value:', row_eval['llm_eval'])
+                    count_exceptions += 1
 
             else:
                 eval_label = get_eval_label(eval_pID)
@@ -317,6 +321,7 @@ def postprocess_llm_evl(df,output_run):
                     eval_output['eval_score_' + eval_label] = None
                     eval_output['timestamp_score_' + eval_label] = None
                     print('Exception at index:', index,' \n with value:', row_eval['llm_eval'])
+                    count_exceptions += 1
                 
                 try:
                     eval_output['eval_explanation_' + eval_label] = row_eval['llm_eval'].split('xplanation=')[1]
@@ -326,6 +331,7 @@ def postprocess_llm_evl(df,output_run):
                     eval_output['eval_explanation_' + eval_label] = None
                     eval_output['timestamp_score_' + eval_label] = None
                     print('Exception at index:', index,' \n with value:', row_eval['llm_eval'])
+                    count_exceptions += 1
             
         eval_output['output_run'] = output_run
         
@@ -337,6 +343,7 @@ def postprocess_llm_evl(df,output_run):
 
     df_eval_output.to_csv(output_llm_eval_folder_path + 'postprocess_eval_' + output_run + '.csv', index=False)
 
+    print('Number of exceptions:', count_exceptions)
 
     return df_eval_output
 
