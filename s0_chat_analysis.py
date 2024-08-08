@@ -19,6 +19,18 @@ from mistralai.models.chat_completion import ChatMessage
 from tqdm import tqdm
 import json
 
+
+
+def get_five_shots(df):
+    # Get random five messages from each session
+    df_five_shots = df.groupby('sessionId').apply(lambda x: x.sample(5)).reset_index(drop=True)
+    df_five_shots = df_five_shots[['sessionId','messageID','timestamp','content','rewritten']]
+    # rename content -> original, rewritten -> neutral
+    df_five_shots = df_five_shots.rename(columns={'content':'original','rewritten':'neutral','sessionId':'username'})
+    df_five_shots.to_csv('f1_processed_user_chat_data/five_shots.csv')
+    return df_five_shots
+
+
 def parse_log_chats(filename):
     df = pd.read_csv('f0_input_user_chat_data/'+filename, sep='\t', header=None)
     df.columns = ['timestamp', 'log_level', 'message']
@@ -30,6 +42,8 @@ def parse_log_chats(filename):
     df_chats['timestamp'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['timestamp'])
     df_chats['sessionId'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['sessionId'])
     df_chats['word_count'] = df_chats['content'].apply(lambda x: len(x.split()))
+    # add messageID column to df_chats, first grouping the df_chats by sessionId and then adding a column with the index
+    df_chats['messageID'] = df_chats.groupby('sessionId').cumcount()
 
     return df_chats
 
@@ -64,7 +78,7 @@ def create_parrallel_corpus(df):
     # Read the configuration file
     config.read('config.ini')
     api_key_mistral = config.get('credentials', 'api_key_mistral')
-    mistral_m = "mistral-small"
+    mistral_m = "mistral-medium"
     mistral_client = MistralClient(api_key = api_key_mistral)
     prompt_id = '111'
     prompt_content = '''
@@ -94,19 +108,19 @@ def create_parrallel_corpus(df):
             messages = messages,
             safe_prompt=True
         )
-        try:
-            data = fix_and_parse_json(chat_response.choices[0].message.content)
-            sentence = data["rewrittenSentence"]
-        except ValueError as e:
-            print(e)
-            sentence =row['output']
+        # try:
+        #     data = fix_and_parse_json(chat_response.choices[0].message.content)
+        #     sentence = data["rewrittenSentence"]
+        # except ValueError as e:
+        #     print(e)
+        #     sentence =row['output']
 
-        final_output.append({'timestamp': row['timestamp'],'original': original,'rewritten': sentence,'output': chat_response.choices[0].message.content,"model": chat_response.model, "prompt_tokens" : chat_response.usage.prompt_tokens,"completion_tokens" : chat_response.usage.completion_tokens,"object" : chat_response.object, "promptID" : prompt_id})
+        final_output.append({'timestamp': row['timestamp'],'original': original,'output': chat_response.choices[0].message.content,"model": chat_response.model, "prompt_tokens" : chat_response.usage.prompt_tokens,"completion_tokens" : chat_response.usage.completion_tokens,"object" : chat_response.object, "promptID" : prompt_id})
 
     df_mistral_output = pd.DataFrame(final_output)
     df_mistral_output = df_mistral_output.reset_index(names='messageID')
     # Apply the function to each row and create new columns
-    df_mistral_output.to_csv('parallel_data_mistral_small.csv')
+    df_mistral_output.to_csv('f1_processed_user_chat_data/parallel_data_mistral_small.csv')
 
     return df_mistral_output
 
@@ -117,17 +131,20 @@ def merge_parallel_data(df_chats, df_par):
 
 def parse_parallel_data(df_par_sent):
     wronglyParsed = 0
-    for _, row in df_par_sent.iterrows():  
+    for index, row in df_par_sent.iterrows():  
         try:
             data = fix_and_parse_json(row['output'])
             # Access the value
             sentence = data["rewrittenSentence"]
-            print(sentence)  # Output: I feel stressed because I'm not good at it.
+            # Add the sentence to the DataFrame, in a new column called 'rewritten'
+            df_par_sent.loc[index, 'rewritten'] = sentence
         except ValueError as e:
             print(e)
-            print(row['output'])
+            df_par_sent.loc[index, 'rewritten'] = row['output']
             wronglyParsed += 1
     print('wronglyParsed: ',wronglyParsed)
+
+    return df_par_sent
 
 def is_valid_json(json_str):
     try:

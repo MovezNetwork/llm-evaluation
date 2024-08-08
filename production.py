@@ -2,100 +2,129 @@ import datetime
 import glob
 import pandas as pd
 import configparser
-from mistralai.client import MistralClient
-from mistralai.models.chat_completion import ChatMessage
+from mistralai import Mistral
+# from mistralai.client import MistralClient
+# from mistralai.models.chat_completion import ChatMessage
 import datetime
 import re
 import os
 from stqdm import stqdm
 from tqdm import tqdm
-
+from openai import OpenAI
 
 # Data preparation methods
 def read_input_data():
-    # Reading the 5 shots data
-    output_shots_data = 'f4_shots_data/'
-    csv_files = glob.glob(output_shots_data + '*.csv')
+    # EXPERIMENT 1
+    # output_shots_data = 'f4_shots_data/'
+    # csv_files = glob.glob(output_shots_data + '*.csv')
 
+    # config = configparser.ConfigParser()
+    # # Read the configuration file & paths
+    # config.read('config.ini')
+
+    # #define empty dataframe to store all shots
+    # df_all_shots = pd.DataFrame()
+    # for file in csv_files:
+    #     if (file.find('mistral') != -1 and file.endswith('5.csv')):
+    #             username = file[14:16]
+    #             df_shots = pd.read_csv(file)
+    #             # add username column to the df_all_shots and the df_shots dataframes
+    #             df_shots['username'] = username
+    #             df_all_shots = pd.concat([df_all_shots,df_shots[['username','messageID','original']]], ignore_index=True)
+
+    # # Sort by username
+    # df_all_shots = df_all_shots.sort_values(by='username')
+
+    # surfdrive_url_input_sentences = config.get('credentials', 'surfdrive_url_input_sentences')
+    # neutral_sentences = pd.read_csv(surfdrive_url_input_sentences,sep=';')[['idSentence','sentences']][0:10]
+    # surfdrive_url_transcript_sentences = config.get('credentials', 'surfdrive_url_transcript_sentences')
+    # user_sentences = pd.read_csv(surfdrive_url_transcript_sentences).reset_index()[['user', 'original', 'your_text']]
+    # user_sentences = user_sentences.merge(neutral_sentences, left_on='original', right_on='sentences', how='left')
+    # user_sentences = user_sentences.drop(columns=['sentences'])
+
+    # EXPERIMENT 2
     config = configparser.ConfigParser()
     # Read the configuration file & paths
     config.read('config.ini')
-
-    #define empty dataframe to store all shots
-    df_all_shots = pd.DataFrame()
-    for file in csv_files:
-        if (file.find('mistral') != -1 and file.endswith('5.csv')):
-                username = file[14:16]
-                df_shots = pd.read_csv(file)
-                # add username column to the df_all_shots and the df_shots dataframes
-                df_shots['username'] = username
-                df_all_shots = pd.concat([df_all_shots,df_shots[['username','messageID','original']]], ignore_index=True)
-
-    # Sort by username
+    data_file = 'f1_processed_user_chat_data/five_shots.csv'
+    df_all_shots = pd.read_csv(data_file)
     df_all_shots = df_all_shots.sort_values(by='username')
 
     surfdrive_url_input_sentences = config.get('credentials', 'surfdrive_url_input_sentences')
-    neutral_sentences = pd.read_csv(surfdrive_url_input_sentences,sep=';')[['idSentence','sentences']][0:10]
-    surfdrive_url_transcript_sentences = config.get('credentials', 'surfdrive_url_transcript_sentences')
-    user_sentences = pd.read_csv(surfdrive_url_transcript_sentences).reset_index()[['user', 'original', 'your_text']]
-    user_sentences = user_sentences.merge(neutral_sentences, left_on='original', right_on='sentences', how='left')
-    user_sentences = user_sentences.drop(columns=['sentences'])
+    neutral_sentences = pd.read_csv(surfdrive_url_input_sentences,sep=';')[['sentenceid','sentences']]
+
+
+    surfdrive_url_transcript_sentences = config.get('credentials', 'surfdrive_url_between_us_user_rewritten')
+    user_sentences = pd.read_csv(surfdrive_url_transcript_sentences,sep=';')[['userid','sentenceid','rewritten']]
+    user_sentences = user_sentences.merge(neutral_sentences, on='sentenceid', how='left')
 
     return df_all_shots,neutral_sentences,user_sentences
 
 # TST methods
-def llm_tst(df_user_data, neutral_sentences):
-    
-    df_mistral_output_all = pd.DataFrame()
-          
-
+def llm_tst(df_user_data, neutral_sentences,model_name, system_prompt, kshot_prompt, inference_prompt,prompt_id):
+    df_output_all = pd.DataFrame()
     config = configparser.ConfigParser()
     # Read the configuration file & paths
     config.read('config.ini')
     api_key_mistral = config.get('credentials', 'api_key_mistral')
-    surfdrive_url_prompts = config.get('credentials', 'surfdrive_url_prompts')
+    api_key_gpt = config.get('credentials', 'api_key_openai')
 
-    # some fixed values
-    prompt_id = 2
-    mistral_m = 'mistral-small'
 
-    
     # create a new folder programmically, with name being a current timestamp in the format YYYYMMDDHHMMSS
-    
-    output_run = 'run_' + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    output_llm_folder_path = 'f6_llm_tst_data/' + output_run + '/'
+    output_run = 'run_' + datetime.datetime.now().strftime("%Y%m%d%H%M%S") + '_model_' + model_name + '_type_' + str(prompt_id)
+    # create prompt string and save it as txt
+    prompt  = system_prompt + ' \n  ' +  kshot_prompt + ' \n  ' +  inference_prompt
 
+
+    output_llm_folder_path = 'f6_llm_tst_data/' + output_run + '/'
     # create the folder if it does not exist
     if not os.path.exists(output_llm_folder_path):
         os.makedirs(output_llm_folder_path)
 
-    
-    # reading prompt template components - depends on prompt_id
-    df_prompts = pd.read_csv(surfdrive_url_prompts,sep=';').reset_index()
-    mistral_prompt_system_content = df_prompts['prompt_system_content'].iloc[prompt_id]
-    mistral_prompt_x_shot_template = df_prompts['prompt_x_shot_template'].iloc[prompt_id]
-    mistral_prompt_content_addition = df_prompts['prompt_content_addition'].iloc[prompt_id]
-
-    prompt_id = str(prompt_id)
+    # Specify the file name
+    file_name = 'f6_llm_tst_data/' + output_run + '/'+  "prompt_" +output_run+ ".txt"
+    with open(file_name, "w") as file:
+        file.write(prompt)
 
     # For each user, generate the prompt and query Mistral API
     grouped_data = df_user_data.groupby('username')
-    # for username, group in stqdm(grouped_data,total=df_user_data['username'].nunique(),desc = "Generating LLM TST Sentences per User "):
-    for username, group in grouped_data:
+    for username, group in stqdm(grouped_data,total=df_user_data['username'].nunique(),desc = "Generating LLM TST Sentences per User "):
+    # for username, group in grouped_data:
 
         x_shots_list = []
         messages_id = []
-        for _, row in group.iterrows():
-            x_shots_list.append(row['original'])
-            messages_id.append(row['messageID'])
 
-        prompt_string = mistral_prompt_system_content + '\n'
-        for i in range(0, len(x_shots_list)):
-            prompt_string += mistral_prompt_x_shot_template.format(x_shots_list[i]) + "\n\n"
+        formatted_k_shot_string = ''
         
-        prompt_string += mistral_prompt_content_addition
-            # Query Mistral API
-        mistral_client = MistralClient(api_key = api_key_mistral)
+
+        # parallel data case
+        if prompt_id==0:
+            for _, row in group.iterrows():
+                x_shots_list.append(row['neutral'])
+                x_shots_list.append(row['original'])
+                messages_id.append(row['messageID'])
+
+            for i in range(0, len(x_shots_list),2):
+                formatted_k_shot_string += kshot_prompt.format(x_shots_list[i], x_shots_list[i + 1]) + "\n\n"
+        # non-parallel data case
+        else:
+            for _, row in group.iterrows():
+                # Access values in the desired order and append to the list
+                x_shots_list.append(row['original'])  
+                messages_id.append(row['messageID'])        
+            for i in range(0, len(x_shots_list)):
+                formatted_k_shot_string += kshot_prompt.format(x_shots_list[i]) + "\n\n"
+                
+        
+        # Query Mistral API
+        if 'mistral' in model_name:
+            # mistral_client = MistralClient(api_key = api_key_mistral)
+            mistral_client = Mistral(api_key = api_key_mistral)
+
+            mistral_query = system_prompt + '\n' + formatted_k_shot_string + '\n' + inference_prompt
+        elif 'gpt' in model_name:
+            gpt_client = OpenAI(api_key = api_key_gpt)
+            gpt_query = formatted_k_shot_string + '\n' + inference_prompt
         # For each sentence, query Mistral API by looping over the neutral_sentences dataframe
         # use tqdm to show progress bar for the loop
     
@@ -103,17 +132,42 @@ def llm_tst(df_user_data, neutral_sentences):
         for i, sentence in neutral_sentences.iterrows():
             final_output = []
             neutral_sentence = sentence['sentences']
+            query = ''
+            if 'mistral' in model_name:
+                mistral_query = f"{mistral_query.replace('{}', f'{{{neutral_sentence}}}')}"
+                query = mistral_query
 
-            query = f"{prompt_string.replace('{}', f'{{{neutral_sentence}}}')}"
-            messages = [ChatMessage(role="user", content=query)]
+                # messages = [ChatMessage(role="user", content=query)]
+                # chat_response = mistral_client.chat(
+                #     model = model_name,
+                #     messages = messages,
+                # )
 
-            chat_response = mistral_client.chat(
-                model=mistral_m,
-                messages=messages,
-            )
+                chat_response = mistral_client.chat.complete(
+                    model=model_name,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": mistral_query,
+                        },
+                    ],
+                )
+
+
+            elif 'gpt' in model_name:
+                gpt_query = f"{gpt_query.replace('{}', f'{{{neutral_sentence}}}')}"
+                query = gpt_query
+                messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content":gpt_query}]
+                chat_response = gpt_client.chat.completions.create(
+                    model = model_name,
+                    messages = messages,
+                    temperature = 0.2,
+                )
+
+
             timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
             final_output.append({
-                'id_neutral_sentence': int(sentence['idSentence']),
+                'id_neutral_sentence': int(sentence['sentenceid']),
                 'neutral_sentence': sentence['sentences'],
                 'username': username,
                 'tst_id': username + timestamp,
@@ -123,32 +177,28 @@ def llm_tst(df_user_data, neutral_sentences):
                 "prompt_tokens": chat_response.usage.prompt_tokens,
                 "completion_tokens": chat_response.usage.completion_tokens,
                 "object": chat_response.object,
-                "promptID": prompt_id,
+                "promptID": str(prompt_id),
                 "timestamp": timestamp,
                 "output_run": output_run
             })
             # final_output list to csv file
-
-            df_mistral_output = pd.DataFrame(final_output)
+            df_output = pd.DataFrame(final_output)
             # Datetime information represented as string as a timestamp
-            
-            df_mistral_output.to_csv(output_llm_folder_path + "s_" + sentence['idSentence'] + "_u_" + username + "_t_" + timestamp + '.csv', index=False)
-    
-            df_mistral_output_all = pd.concat([df_mistral_output_all, df_mistral_output], ignore_index=True)
+            df_output.to_csv(output_llm_folder_path + "s_" + str(sentence['sentenceid']) + "_u_" + username + "_t_" + timestamp + '.csv', index=False)
+            df_output_all = pd.concat([df_output_all, df_output], ignore_index=True)
     
     #try to execute this method, if it fails return df_mistral_output_all
     try:
-        df_postprocess = postprocess_llm_tst(df_mistral_output_all, output_run)
+        df_postprocess = postprocess_llm_tst(df_output_all, output_run)
     except:
         print('Postprocessing failed, returning the raw data. Please run the postprocessing method manually.')
-        return df_mistral_output_all
+        return df_output_all
 
 
     return df_postprocess
 
 
 def postprocess_llm_tst(df,output_run):
-
     df['tst_sentence'] = df['llm_tst'].apply(lambda x: extract_tst(x)[0])
     df['explanation'] = df['llm_tst'].apply(lambda x: extract_tst(x)[1])
 
@@ -170,14 +220,12 @@ def extract_tst(text):
 
 
 # Evaluation methods
-def llm_evl(df,user_sentences):
+def llm_evl(df,user_sentences,model_name):
     config = configparser.ConfigParser()
     config.read('config.ini')
 
     api_key_mistral = config.get('credentials', 'api_key_mistral')
-    mistral_client = MistralClient(api_key=api_key_mistral)
-
-    mistral_m = "mistral-small"
+    mistral_client = Mistral(api_key=api_key_mistral)
 
     surfdrive_url_evaluation_prompts = config.get('credentials', 'surfdrive_url_evaluation_prompts')
     df_eval_prompts = pd.read_csv(surfdrive_url_evaluation_prompts, sep = ';', on_bad_lines='skip').reset_index()
@@ -185,7 +233,7 @@ def llm_evl(df,user_sentences):
     # saving eval outcomes to temp list, to be appended to the final dataframe
     eval_output = []
 
-    for _, row_sentences in tqdm(df.iterrows(),total=df.shape[0],desc = "Evaluating TST sentences"):
+    for _, row_sentences in stqdm(df.iterrows(),total=df.shape[0],desc = "Evaluating TST sentences"):
     # for _, row_sentences in df.iterrows():
 
         # take the sentence from the corpus
@@ -194,7 +242,7 @@ def llm_evl(df,user_sentences):
         # evaluate the sentence on all evaluation metrics
         for _, row_eval in df_eval_prompts.iterrows():
             eval_promptID = int(row_eval['eval_promptID'])
-            user_s = user_sentences[(user_sentences.user == row_sentences['username']) & (user_sentences.idSentence ==  str(row_sentences['id_neutral_sentence']))]['your_text'].iloc[0]
+            user_s = user_sentences[(user_sentences.userid == row_sentences['username']) & (user_sentences.sentenceid ==  row_sentences['id_neutral_sentence'])]['rewritten'].iloc[0]
             prompt_system = row_eval['prompt_system']
             prompt_main = row_eval['prompt_main']
             prompt_inference = row_eval['prompt_inference']
@@ -206,12 +254,25 @@ def llm_evl(df,user_sentences):
                 formatted_inference = prompt_inference.format(user_s,sentence)
                 eval_prompt = f"{prompt_system}{prompt_main}{formatted_inference}"
 
-            query = [ChatMessage(role="user", content=eval_prompt)]
+            # query = [ChatMessage(role="user", content=eval_prompt)]
+
+            # chat_response = mistral_client.chat(
+            #     model = model_name,
+            #     messages = query,
+            # )
+
             # No streaming
-            chat_response = mistral_client.chat(
-                model=mistral_m,
-                messages=query,
+            chat_response = mistral_client.chat.complete(
+                model=model_name,
+                messages=[
+                        {
+                            "role": "user",
+                            "content": eval_prompt,
+                        },
+                    ],
             )
+
+
             eval_timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
             eval_output.append({
                 'username': row_sentences['username'],

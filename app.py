@@ -11,6 +11,7 @@ from datetime import datetime
 import os
 import math
 import plotly.express as px
+import configparser
 
 
 # access parent directory from notebooks directory
@@ -631,12 +632,95 @@ def main():
     # New Runs tab
     with tab3:
         st.subheader("New LLM Run")
-        if st.button('Start New LLM Run'):  # Returns True if the user clicks the button
-            st.write('Running LLM Text Style Transfer & Evaluation...')
-            df_user_data,neutral_sentences = p.read_input_data()
-            df_llm_tst = p.llm_tst(df_user_data,neutral_sentences[0:2])
-            df_eval = p.llm_evl(df_llm_tst)
-            st.write('New LLM RUN Generated with run_id: ', df_llm_tst['output_run'].unique()[0])
+        models = ['mistral-small', 'mistral-medium','gpt-3.5-turbo-0125','gpt-4-turbo-preview']
+        prompts = ['k-shot non-parallel','k-shot parallel']
+
+
+
+
+        model_selection = st.selectbox("Select a LLM",models,index=None, placeholder="Select LLM Model...")
+        if model_selection:
+            st.write('Selected model',  model_selection)
+
+            prompt_selection = st.selectbox("Select a prompt",prompts,index=None, placeholder="Select prompt...")
+            
+            config = configparser.ConfigParser()
+            # Read the configuration file & paths
+            config.read('config.ini')
+            api_key_mistral = config.get('credentials', 'api_key_mistral')
+            surfdrive_url_prompts = config.get('credentials', 'surfdrive_url_prompts')
+
+            if prompt_selection == 'k-shot non-parallel':
+                prompt_id = 2
+                # reading prompt template components - depends on prompt_id
+                df_prompts = pd.read_csv(surfdrive_url_prompts,sep=';').reset_index()
+                mistral_prompt_system_content = df_prompts['prompt_system_content'].iloc[prompt_id]
+                mistral_prompt_x_shot_template = df_prompts['prompt_x_shot_template'].iloc[prompt_id]
+                mistral_prompt_content_addition = df_prompts['prompt_content_addition'].iloc[prompt_id]
+
+                system_prompt = st.text_area(
+                    "System Prompt:",
+                    mistral_prompt_system_content,
+                )
+                task_prompt = st.text_area(
+                    "Task Prompt:",
+                   mistral_prompt_x_shot_template,
+                )
+                inference_prompt = st.text_area(
+                    "Inference Prompt:",
+                    mistral_prompt_content_addition,
+                )
+            
+            elif prompt_selection == 'k-shot parallel':
+                prompt_id = 0
+                # reading prompt template components - depends on prompt_id
+                df_prompts = pd.read_csv(surfdrive_url_prompts,sep=';').reset_index()
+                mistral_prompt_system_content = df_prompts['prompt_system_content'].iloc[prompt_id]
+                mistral_prompt_x_shot_template = df_prompts['prompt_x_shot_template'].iloc[prompt_id]
+                mistral_prompt_content_addition = df_prompts['prompt_content_addition'].iloc[prompt_id]
+
+                system_prompt = st.text_area(
+                    "System Prompt:",
+                    mistral_prompt_system_content,
+                )
+                task_prompt = st.text_area(
+                    "K-shot Examples Prompt:",
+                   mistral_prompt_x_shot_template,
+                )
+                inference_prompt = st.text_area(
+                    "Inference Prompt:",
+                    mistral_prompt_content_addition,
+                )
+
+            users = st.multiselect(
+                "Which users to include?",
+                ["BU01", "BU02", "BU03", "BU04","BU05", "BU06", "BU07", "BU08"],
+                ["BU01", "BU02", "BU03", "BU04","BU05", "BU06", "BU07", "BU08"],
+            )
+            sentences = st.multiselect(
+                "Which sentences to include?",
+                [0,1,2,3,4,5,6,7,8,9],
+                [0,1,2,3,4,5,6,7,8,9],
+            )
+
+            if st.button('Start New LLM Run'):
+                # open dialog window in streamlit to confirm the run
+
+            
+                st.write('Running LLM Text Style Transfer & Evaluation...')
+
+                df_user_data,neutral_sentences,user_sentences = p.read_input_data()
+                df_user_data = df_user_data[df_user_data['username'].isin(users)]
+                neutral_sentences = neutral_sentences[neutral_sentences['sentenceid'].isin(sentences)]
+
+                df_llm_tst = p.llm_tst(df_user_data,neutral_sentences,model_selection,system_prompt,task_prompt,inference_prompt,prompt_id,users,sentences)
+                df_eval = p.llm_evl(df_llm_tst,user_sentences,model_selection)
+                st.write('New LLM RUN Generated with run_id: ', df_llm_tst['output_run'].unique()[0])
+        
+        else:
+            st.write('')
+
+
 
 
 
