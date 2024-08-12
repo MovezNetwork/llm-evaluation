@@ -632,10 +632,8 @@ def main():
     # New Runs tab
     with tab3:
         st.subheader("New LLM Run")
-        models = ['mistral-small', 'mistral-medium','gpt-3.5-turbo-0125','gpt-4-turbo-preview']
+        models = ['mistral-small', 'mistral-medium','gpt-3.5-turbo-0125','gpt-4-turbo','gpt-4o-mini','gpt-4o']
         prompts = ['k-shot non-parallel','k-shot parallel']
-
-
 
 
         model_selection = st.selectbox("Select a LLM",models,index=None, placeholder="Select LLM Model...")
@@ -647,7 +645,6 @@ def main():
             config = configparser.ConfigParser()
             # Read the configuration file & paths
             config.read('config.ini')
-            api_key_mistral = config.get('credentials', 'api_key_mistral')
             surfdrive_url_prompts = config.get('credentials', 'surfdrive_url_prompts')
 
             if prompt_selection == 'k-shot non-parallel':
@@ -703,18 +700,36 @@ def main():
                 [0,1,2,3,4,5,6,7,8,9],
             )
 
-            if st.button('Start New LLM Run'):
+            if st.button('Start LLM TST'):
                 # open dialog window in streamlit to confirm the run
 
             
-                st.write('Running LLM Text Style Transfer & Evaluation...')
+                st.write('Running LLM Text Style Transfer')
 
                 df_user_data,neutral_sentences,user_sentences = p.read_input_data()
                 df_user_data = df_user_data[df_user_data['username'].isin(users)]
                 neutral_sentences = neutral_sentences[neutral_sentences['sentenceid'].isin(sentences)]
 
-                df_llm_tst = p.llm_tst(df_user_data,neutral_sentences,model_selection,system_prompt,task_prompt,inference_prompt,prompt_id,users,sentences)
-                df_eval = p.llm_evl(df_llm_tst,user_sentences,model_selection)
+                df_llm_tst,output_run = p.llm_tst(df_user_data,neutral_sentences,model_selection,system_prompt,task_prompt,inference_prompt,prompt_id)
+                st.write(df_llm_tst)
+                st.write('Postprocess LLM TST')
+
+                df_llm_tst_processed = p.postprocess_llm_tst(df_llm_tst,output_run)
+                st.write(df_llm_tst_processed)
+
+                st.write('Evaluate LLM TST')
+                df_eval = p.llm_evl(df_llm_tst_processed,user_sentences,model_selection)
+                st.write(df_eval)
+
+                # # check if df is not empty
+                # if not df_llm_tst.empty:
+                #     st.write(df_llm_tst)
+                #     if st.button('Start LLM EVAL'):
+                #         st.write('Running LLM-based Evaluation')
+                #         try:
+                #             st.write(df_eval)
+                #         except:
+                #             st.write('Error in LLM Evaluation') 
                 st.write('New LLM RUN Generated with run_id: ', df_llm_tst['output_run'].unique()[0])
         
         else:

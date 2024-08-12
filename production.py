@@ -1,5 +1,4 @@
 import datetime
-import glob
 import pandas as pd
 import configparser
 from mistralai import Mistral
@@ -121,10 +120,8 @@ def llm_tst(df_user_data, neutral_sentences,model_name, system_prompt, kshot_pro
             # mistral_client = MistralClient(api_key = api_key_mistral)
             mistral_client = Mistral(api_key = api_key_mistral)
 
-            mistral_query = system_prompt + '\n' + formatted_k_shot_string + '\n' + inference_prompt
         elif 'gpt' in model_name:
             gpt_client = OpenAI(api_key = api_key_gpt)
-            gpt_query = formatted_k_shot_string + '\n' + inference_prompt
         # For each sentence, query Mistral API by looping over the neutral_sentences dataframe
         # use tqdm to show progress bar for the loop
     
@@ -132,10 +129,13 @@ def llm_tst(df_user_data, neutral_sentences,model_name, system_prompt, kshot_pro
         for i, sentence in neutral_sentences.iterrows():
             final_output = []
             neutral_sentence = sentence['sentences']
+
             query = ''
             if 'mistral' in model_name:
+                mistral_query = system_prompt + '\n' + formatted_k_shot_string + '\n' + inference_prompt
                 mistral_query = f"{mistral_query.replace('{}', f'{{{neutral_sentence}}}')}"
                 query = mistral_query
+                # print('\n Query: ', query)
 
                 # messages = [ChatMessage(role="user", content=query)]
                 # chat_response = mistral_client.chat(
@@ -148,16 +148,17 @@ def llm_tst(df_user_data, neutral_sentences,model_name, system_prompt, kshot_pro
                     messages=[
                         {
                             "role": "user",
-                            "content": mistral_query,
+                            "content": query,
                         },
                     ],
                 )
 
 
             elif 'gpt' in model_name:
+                gpt_query = formatted_k_shot_string + '\n' + inference_prompt
                 gpt_query = f"{gpt_query.replace('{}', f'{{{neutral_sentence}}}')}"
                 query = gpt_query
-                messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content":gpt_query}]
+                messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content":query}]
                 chat_response = gpt_client.chat.completions.create(
                     model = model_name,
                     messages = messages,
@@ -187,26 +188,33 @@ def llm_tst(df_user_data, neutral_sentences,model_name, system_prompt, kshot_pro
             df_output.to_csv(output_llm_folder_path + "s_" + str(sentence['sentenceid']) + "_u_" + username + "_t_" + timestamp + '.csv', index=False)
             df_output_all = pd.concat([df_output_all, df_output], ignore_index=True)
     
-    #try to execute this method, if it fails return df_mistral_output_all
-    try:
-        df_postprocess = postprocess_llm_tst(df_output_all, output_run)
-    except:
-        print('Postprocessing failed, returning the raw data. Please run the postprocessing method manually.')
-        return df_output_all
+    # #try to execute this method, if it fails return df_mistral_output_all
+    # try:
+    #     df_postprocess = postprocess_llm_tst(df_output_all, output_run)
+    # except:
+    #     print('Postprocessing failed, returning the raw data. Please run the postprocessing method manually.')
+    #     return df_output_all
 
 
-    return df_postprocess
+    return df_output_all,output_run
 
 
 def postprocess_llm_tst(df,output_run):
-    df['tst_sentence'] = df['llm_tst'].apply(lambda x: extract_tst(x)[0])
-    df['explanation'] = df['llm_tst'].apply(lambda x: extract_tst(x)[1])
+    print('Postprocessing LLM TST data')
+    # apply try except block to catch exceptions
+    try:
+        df['tst_sentence'] = df['llm_tst'].apply(lambda x: extract_tst(x)[0])
+        df['explanation'] = df['llm_tst'].apply(lambda x: extract_tst(x)[1])
 
-    df = df[['username','id_neutral_sentence','neutral_sentence','tst_id','tst_sentence','explanation','llm_tst','query','model','prompt_tokens','completion_tokens','object','promptID','timestamp','output_run']]
-    
-    output_llm_folder_path = 'f6_llm_tst_data/' + output_run + '/'
+        df = df[['username','id_neutral_sentence','neutral_sentence','tst_id','tst_sentence','explanation','llm_tst','query','model','prompt_tokens','completion_tokens','object','promptID','timestamp','output_run']]
+        
+        output_llm_folder_path = 'f6_llm_tst_data/' + output_run + '/'
 
-    df.to_csv(output_llm_folder_path + output_run + '_tst_postprocess.csv', index=False)
+        df.to_csv(output_llm_folder_path + output_run + '_tst_postprocess.csv', index=False)
+    except:
+        print('Postprocessing failed, returning the raw data. Please run the postprocessing method manually.')
+        return df
+
 
     return df
 
@@ -224,8 +232,13 @@ def llm_evl(df,user_sentences,model_name):
     config = configparser.ConfigParser()
     config.read('config.ini')
 
-    api_key_mistral = config.get('credentials', 'api_key_mistral')
-    mistral_client = Mistral(api_key=api_key_mistral)
+    if 'mistral' in model_name:
+        api_key_mistral = config.get('credentials', 'api_key_mistral')
+        # mistral_client = MistralClient(api_key = api_key_mistral)
+        mistral_client = Mistral(api_key = api_key_mistral)
+    elif 'gpt' in model_name:
+        api_key_gpt = config.get('credentials', 'api_key_openai')
+        gpt_client = OpenAI(api_key = api_key_gpt)
 
     surfdrive_url_evaluation_prompts = config.get('credentials', 'surfdrive_url_evaluation_prompts')
     df_eval_prompts = pd.read_csv(surfdrive_url_evaluation_prompts, sep = ';', on_bad_lines='skip').reset_index()
@@ -260,17 +273,28 @@ def llm_evl(df,user_sentences,model_name):
             #     model = model_name,
             #     messages = query,
             # )
+            if 'mistral' in model_name:
+                # No streaming
+                chat_response = mistral_client.chat.complete(
+                    model=model_name,
+                    messages=[
+                            {
+                                "role": "user",
+                                "content": eval_prompt,
+                            },
+                        ],
+                )
+            elif 'gpt' in model_name:
+                print('evaluation with gpt')
+                # gpt query
+                messages = [{"role": "system", "content": "You are an linguistic expert that should evaluate text on different metrics."},
+                             {"role": "user", "content": eval_prompt}]
+                chat_response = gpt_client.chat.completions.create(
+                    model = model_name,
+                    messages = messages,
+                    temperature = 0.2,
+                )
 
-            # No streaming
-            chat_response = mistral_client.chat.complete(
-                model=model_name,
-                messages=[
-                        {
-                            "role": "user",
-                            "content": eval_prompt,
-                        },
-                    ],
-            )
 
 
             eval_timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
