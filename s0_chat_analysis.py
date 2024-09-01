@@ -35,10 +35,10 @@ def parse_log_chats(filename):
     df = pd.read_csv('f0_input_user_chat_data/'+filename, sep='\t', header=None)
     df.columns = ['timestamp', 'log_level', 'message']
     # from the message column, filter only those which json has a field called fromUserId
-    df_chats = df[df['message'].str.contains('fromUserId') & df['message'].str.contains('"log"') & df['message'].str.contains('"content')]
+    df_chats = df[df['message'].str.contains('userId') & df['message'].str.contains('"log"') & df['message'].str.contains('"content')]
     df_chats['content'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['content'])
-    df_chats['fromUserId'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['fromUserId'])
-    df_chats['toUserId'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['toUserId'])
+    df_chats['fromUserId'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['userId'])
+    df_chats['toUserId'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['to'])
     df_chats['timestamp'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['timestamp'])
     df_chats['sessionId'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['sessionId'])
     df_chats['word_count'] = df_chats['content'].apply(lambda x: len(x.split()))
@@ -52,11 +52,15 @@ def postprocess_text(df):
     # Remove group chat duplicates
     df = remove_group_chat_duplicates(df)
     # First group by sessionID, then calculate the average_sentence_length and keep only the rows with word_count > average_sentence_length
+    print(df.shape)
     df['average_sentence_length'] = df.groupby('sessionId')['word_count'].transform('mean')
+    print(df.shape)
     df = df[df['word_count'] > df['average_sentence_length']]
+    print(df.shape)
     # drop the average_sentence_length column
     df = df.drop(columns=['average_sentence_length'])
-    
+    print(df.shape)
+   
     return df
 
 
