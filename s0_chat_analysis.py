@@ -1,6 +1,15 @@
 import pandas as pd
+import numpy as np
 import re
-import emoji
+import configparser
+import json
+from openai import OpenAI
+from mistralai import Mistral
+
+#import emoji
+#from django.conf import settings
+#settings.configure(DEBUG=True)
+
 # import nltk
 # nltk.download('punkt')
 # nltk.download('averaged_perceptron_tagger')
@@ -9,15 +18,10 @@ import emoji
 # from nltk import FreqDist
 # from nltk import bigrams, trigrams, pos_tag
 # from nltk.corpus import stopwords
+
 from textstat.textstat import textstatistics 
 from collections import Counter
-import numpy as np
-import json
-import configparser
-from mistralai.client import MistralClient
-from mistralai.models.chat_completion import ChatMessage
 from tqdm import tqdm
-import json
 
 
 
@@ -32,13 +36,13 @@ def get_five_shots(df):
 
 
 def parse_log_chats(filename):
-    df = pd.read_csv('f0_input_user_chat_data/'+filename, sep='\t', header=None)
+    df = pd.read_csv('00_input_data/'+filename, sep='\t', header=None)
     df.columns = ['timestamp', 'log_level', 'message']
     # from the message column, filter only those which json has a field called fromUserId
     df_chats = df[df['message'].str.contains('userId') & df['message'].str.contains('"log"') & df['message'].str.contains('"content')]
     df_chats['content'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['content'])
     df_chats['fromUserId'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['userId'])
-    df_chats['toUserId'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['to'])
+    df_chats['toUserId'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['toUserId'])
     df_chats['timestamp'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['timestamp'])
     df_chats['sessionId'] = df_chats['message'].apply(lambda x: json.loads(json.loads(x)['log'])['sessionId'])
     df_chats['word_count'] = df_chats['content'].apply(lambda x: len(x.split()))
@@ -53,9 +57,9 @@ def postprocess_text(df):
     df = remove_group_chat_duplicates(df)
     # First group by sessionID, then calculate the average_sentence_length and keep only the rows with word_count > average_sentence_length
     print(df.shape)
-    df['average_sentence_length'] = df.groupby('sessionId')['word_count'].transform('mean')
+    df['average_sentence_length'] = df.groupby('sessionId')['word_count'].transform('median')
     print(df.shape)
-    df = df[df['word_count'] > df['average_sentence_length']]
+    df = df[df['word_count'] >= df['average_sentence_length']]
     print(df.shape)
     # drop the average_sentence_length column
     df = df.drop(columns=['average_sentence_length'])
@@ -76,99 +80,6 @@ def remove_group_chat_duplicates(df):
     df_filtered = df[~mask | (mask & ~df.duplicated(subset='content', keep='first'))]
 
     return df_filtered
-
-def create_parrallel_corpus(df):
-    config = configparser.ConfigParser()
-    # Read the configuration file
-    config.read('config.ini')
-    api_key_mistral = config.get('credentials', 'api_key_mistral')
-    mistral_m = "mistral-medium"
-    mistral_client = MistralClient(api_key = api_key_mistral)
-    prompt_id = '111'
-    prompt_content = '''
-    [INST]You are an expert in text style transfer. \n
-    You will be given a sentence written in the conversational style of person X. \n 
-    Your task is to rewrite the same sentence without any style. \n
-    Here is the sentence written in the style of person X: {}.
-    Return the rewritten sentence in a short json object with one field called rewrittenSentence. \n
-    Do NOT provide any additional information or explanation. \n
-    \n
-    [\INST]'''
-
-    df['parralelSentence'] = None
-
-    
-    final_output = []
-    
-    for index, row in  tqdm(df.iterrows(),total=df.shape[0],desc = "Creating Parrallel Corpus..."):   
-        original = row['content']
-        query = f"{prompt_content.replace('{}', f'{{{original}}}',1)}"
-        
-        messages = [ChatMessage(role = "user", content = query) ]
-        
-        # No streaming
-        chat_response = mistral_client.chat(
-            model = mistral_m,
-            messages = messages,
-            safe_prompt=True
-        )
-        # try:
-        #     data = fix_and_parse_json(chat_response.choices[0].message.content)
-        #     sentence = data["rewrittenSentence"]
-        # except ValueError as e:
-        #     print(e)
-        #     sentence =row['output']
-
-        final_output.append({'timestamp': row['timestamp'],'original': original,'output': chat_response.choices[0].message.content,"model": chat_response.model, "prompt_tokens" : chat_response.usage.prompt_tokens,"completion_tokens" : chat_response.usage.completion_tokens,"object" : chat_response.object, "promptID" : prompt_id})
-
-    df_mistral_output = pd.DataFrame(final_output)
-    df_mistral_output = df_mistral_output.reset_index(names='messageID')
-    # Apply the function to each row and create new columns
-    df_mistral_output.to_csv('f1_processed_user_chat_data/parallel_data_mistral_small.csv')
-
-    return df_mistral_output
-
-def merge_parallel_data(df_chats, df_par):
-    df_par = df_par[['timestamp', 'rewritten']]
-    df_chats = pd.merge(df_par, df_chats, on='timestamp')
-    return df_chats
-
-def parse_parallel_data(df_par_sent):
-    wronglyParsed = 0
-    for index, row in df_par_sent.iterrows():  
-        try:
-            data = fix_and_parse_json(row['output'])
-            # Access the value
-            sentence = data["rewrittenSentence"]
-            # Add the sentence to the DataFrame, in a new column called 'rewritten'
-            df_par_sent.loc[index, 'rewritten'] = sentence
-        except ValueError as e:
-            print(e)
-            df_par_sent.loc[index, 'rewritten'] = row['output']
-            wronglyParsed += 1
-    print('wronglyParsed: ',wronglyParsed)
-
-    return df_par_sent
-
-def is_valid_json(json_str):
-    try:
-        json.loads(json_str)
-        return True
-    except json.JSONDecodeError:
-        return False
-    
-def fix_and_parse_json(json_str):
-    # Check if the JSON is already valid
-    if is_valid_json(json_str):
-        return json.loads(json_str)
-    
-    # Remove extra curly braces and try parsing again
-    if json_str.startswith('{{') and json_str.endswith('}}'):
-        fixed_str = json_str[1:-1]  # Remove the outermost curly braces
-        if is_valid_json(fixed_str):
-            return json.loads(fixed_str)
-    
-    raise ValueError("The JSON string is not valid even after removing extra curly braces! Json_str: ", json_str)
 
 
 def tokenize_messages(message):

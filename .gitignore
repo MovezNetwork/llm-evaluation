@@ -18,3 +18,8 @@ __pycache__/
  output_evaluationPrompts_NoContext_complete_output.csv
 /output_evaluation/
 f8_llm_evaluation_data
+/00_input_data
+/01_processed_input_data
+/02_tst_exploration
+/02_tst_output
+/03_tst_evaluation
